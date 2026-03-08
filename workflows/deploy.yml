@@ -1,0 +1,50 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject secrets into app
+        run: |
+          sed -i "s|__SHEETS_CLIENT_EMAIL__|${{ secrets.SHEETS_CLIENT_EMAIL }}|g" index.html
+          sed -i "s|__SHEETS_SPREADSHEET_ID__|${{ secrets.SHEETS_SPREADSHEET_ID }}|g" index.html
+          # Private key: replace placeholder, handle newlines in PEM key
+          PRIVATE_KEY=$(echo '${{ secrets.SHEETS_PRIVATE_KEY }}' | sed 's/\\n/\n/g')
+          python3 -c "
+          import sys
+          key = open('/dev/stdin').read().strip()
+          html = open('index.html').read()
+          html = html.replace('__SHEETS_PRIVATE_KEY__', key.replace('\\\\', '\\\\\\\\').replace('\`', '\\\`'))
+          open('index.html', 'w').write(html)
+          " <<< "$PRIVATE_KEY"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
