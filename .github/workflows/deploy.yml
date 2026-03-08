@@ -24,18 +24,35 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Inject secrets into app
+        env:
+          CLIENT_EMAIL: ${{ secrets.SHEETS_CLIENT_EMAIL }}
+          PRIVATE_KEY: ${{ secrets.SHEETS_PRIVATE_KEY }}
+          SPREADSHEET_ID: ${{ secrets.SHEETS_SPREADSHEET_ID }}
         run: |
-          sed -i "s|__SHEETS_CLIENT_EMAIL__|${{ secrets.SHEETS_CLIENT_EMAIL }}|g" index.html
-          sed -i "s|__SHEETS_SPREADSHEET_ID__|${{ secrets.SHEETS_SPREADSHEET_ID }}|g" index.html
-          # Private key: replace placeholder, handle newlines in PEM key
-          PRIVATE_KEY=$(echo '${{ secrets.SHEETS_PRIVATE_KEY }}' | sed 's/\\n/\n/g')
-          python3 -c "
-          import sys
-          key = open('/dev/stdin').read().strip()
-          html = open('index.html').read()
-          html = html.replace('__SHEETS_PRIVATE_KEY__', key.replace('\\\\', '\\\\\\\\').replace('\`', '\\\`'))
-          open('index.html', 'w').write(html)
-          " <<< "$PRIVATE_KEY"
+          python3 - <<'PYEOF'
+          import os, re
+
+          email  = os.environ['CLIENT_EMAIL']
+          key    = os.environ['PRIVATE_KEY']
+          sid    = os.environ['SPREADSHEET_ID']
+
+          # Normalize newlines in private key
+          key = key.replace('\\n', '\n')
+
+          with open('index.html', 'r') as f:
+              html = f.read()
+
+          html = html.replace('__SHEETS_CLIENT_EMAIL__', email)
+          html = html.replace('__SHEETS_SPREADSHEET_ID__', sid)
+          # Key goes inside a template literal - escape backticks and backslashes
+          key_escaped = key.replace('\\', '\\\\').replace('`', '\\`')
+          html = html.replace('__SHEETS_PRIVATE_KEY__', key_escaped)
+
+          with open('index.html', 'w') as f:
+              f.write(html)
+
+          print("Injection complete")
+          PYEOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
