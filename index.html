@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajax U11 – Træningsplanlægger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#111318; --bg2:#181c24; --bg3:#1e2330; --bg4:#252d3e;
+    --border:#2a3248; --border2:#38435e;
+    --accent:#C8102E; --accent2:#e02040; --accent-light:rgba(200,16,46,0.12);
+    --green:#22c55e; --yellow:#f59e0b; --blue:#3b82f6; --purple:#8b5cf6;
+    --text:#eef0f5; --text2:#8d97b0; --text3:#4d5878; --red:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh}
+  #app{display:flex;flex-direction:column;height:100vh}
+
+  .topbar{background:var(--bg2);border-bottom:3px solid var(--accent);display:flex;align-items:center;padding:0 20px;height:54px;gap:0;flex-shrink:0}
+  .topbar-logo{display:flex;align-items:center;gap:10px;margin-right:28px}
+  .logo-text .club{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--accent);letter-spacing:.05em;text-transform:uppercase}
+  .logo-text .team{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.12em;text-transform:uppercase}
+  .nav-tabs{display:flex;height:100%}
+  .nav-tab{background:none;border:none;color:var(--text3);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:0 16px;cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;margin-bottom:-3px;white-space:nowrap}
+  .nav-tab:hover{color:var(--text2)}
+  .nav-tab.active{color:#fff;border-bottom-color:var(--accent)}
+  .sync-indicator{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+  .sync-dot.ok{background:var(--green)}
+  .sync-dot.syncing{background:var(--yellow);animation:pulse 1s infinite}
+  .sync-dot.err{background:var(--red)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .content{flex:1;overflow-y:auto;padding:24px}
+
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:8px}
+  .card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .card-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text2)}
+  .card-body{padding:16px}
+
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:5px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+  .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+  .btn-secondary{background:var(--bg3);border:1px solid var(--border2);color:var(--text)}.btn-secondary:hover{background:var(--bg4)}
+  .btn-ghost{background:none;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+  .btn-danger{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25)}.btn-danger:hover{background:rgba(239,68,68,.22)}
+  .btn-sm{padding:4px 10px;font-size:12px}.btn-xs{padding:2px 7px;font-size:11px}.btn-icon{padding:5px 7px}
+
+  input,select,textarea{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:8px 11px;font-family:'DM Sans',sans-serif;font-size:13px;width:100%;outline:none;transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  select option{background:var(--bg3)}
+  label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase}
+  .form-group{margin-bottom:13px}
+  .form-row{display:grid;gap:10px}
+
+  .stars{display:inline-flex;gap:3px}
+  .star{cursor:pointer;font-size:18px;color:var(--text3);transition:color .1s;line-height:1}
+  .star.filled{color:var(--yellow)}
+  .tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:3px;font-size:11px;font-weight:500;background:var(--bg4);border:1px solid var(--border2);color:var(--text2)}
+  .tags-wrap{display:flex;flex-wrap:wrap;gap:4px}
+
+  .sc-fysisk{--sc:#f59e0b}.sc-opvarmning{--sc:#22c55e}.sc-afleveringer{--sc:#3b82f6}
+  .sc-kontra{--sc:#C8102E}.sc-teknik{--sc:#8b5cf6}.sc-spil{--sc:#06b6d4}
+  .sc-keeper{--sc:#ec4899}.sc-forsvar{--sc:#f97316}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+  .modal-lg{max-width:900px}.modal-sm{max-width:440px}
+  .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .modal-title{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.04em}
+  .modal-body{padding:20px}
+  .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .flex-row{display:flex;align-items:center;gap:8px}
+  .flex-between{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pill-group{display:flex;flex-wrap:wrap;gap:6px}
+  .pill{padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;transition:all .15s}
+  .pill:hover{border-color:var(--accent);color:var(--text)}
+  .pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+  .divider{border:none;border-top:1px solid var(--border);margin:14px 0}
+  ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+  .empty{text-align:center;padding:40px 20px;color:var(--text3)}
+  .empty-icon{font-size:36px;margin-bottom:10px}
+  .list-item{border:1px solid var(--border);border-radius:6px;background:var(--bg3);padding:12px 14px;margin-bottom:8px;transition:border-color .15s;cursor:pointer}
+  .list-item:hover{border-color:var(--border2)}
+  .list-title{font-weight:600;font-size:14px;margin-bottom:3px}
+  .list-meta{color:var(--text2);font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .prog-bar{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+  .prog-fill{height:100%;border-radius:2px;transition:width .3s}
+  .mins-ok{color:var(--green)}.mins-warn{color:var(--yellow)}.mins-over{color:var(--red)}
+  .sec-block{border:1px solid var(--border);border-left:3px solid var(--sc,var(--accent));border-radius:6px;margin-bottom:10px;overflow:hidden}
+  .sec-block-head{padding:9px 13px;background:var(--bg3);display:flex;align-items:center;gap:8px}
+  .sec-block-body{padding:12px;background:var(--bg2)}
+  .sec-label{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sc,var(--text))}
+  .sec-mins{font-size:12px;color:var(--text2);margin-left:auto}
+  .ex-row{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;margin-bottom:5px}
+  .ex-row-name{flex:1;font-size:13px}
+  .mins-inp{width:60px;flex-shrink:0;padding:5px 8px}
+  .parallel-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--purple);font-weight:600;text-transform:uppercase;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:2px 6px;border-radius:3px}
+  .q-card{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .q-head{padding:12px 16px;display:flex;align-items:center;gap:12px}
+  .q-num{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1}
+  .q-body{padding:14px;background:var(--bg2)}
+  .theme-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin-bottom:5px}
+  .theme-inp{flex:1;background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none}
+  .theme-inp::placeholder{color:var(--text3)}
+  .loc-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);color:var(--text2)}
+  .loc-valby{border-color:rgba(200,16,46,.4);color:#ff8096;background:rgba(200,16,46,.08)}
+  .loc-bavnehoj{border-color:rgba(59,130,246,.4);color:#93c5fd;background:rgba(59,130,246,.08)}
+  .loc-dybboel{border-color:rgba(34,197,94,.4);color:#86efac;background:rgba(34,197,94,.08)}
+  .toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:6px}
+  .toast{padding:10px 16px;border-radius:5px;font-size:13px;font-weight:500;animation:toastIn .2s ease;border-left:3px solid;min-width:220px}
+  .toast-ok{background:#052e16;border-color:var(--green);color:#86efac}
+  .toast-err{background:#450a0a;border-color:var(--red);color:#fca5a5}
+  .toast-info{background:#1e3a5f;border-color:var(--blue);color:#93c5fd}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .search-wrap{position:relative}.search-wrap input{padding-left:32px}
+  .search-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:14px}
+  .subtabs{display:flex;margin-bottom:18px;border-bottom:1px solid var(--border)}
+  .subtab{background:none;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+  .subtab:hover{color:var(--text)}.subtab.active{color:var(--text);border-bottom-color:var(--accent)}
+  .cat-row{display:grid;grid-template-columns:200px 1fr 100px 120px 50px 36px;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px}
+  .cat-row:hover{background:var(--bg3);cursor:pointer}
+  .cat-hdr{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;background:var(--bg3);cursor:default!important}
+  .cat-hdr:hover{background:var(--bg3)}
+  .arch-tbl{width:100%;border-collapse:collapse}
+  .arch-tbl th{text-align:left;padding:9px 11px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+  .arch-tbl td{padding:11px 11px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  .arch-tbl tr:hover td{background:var(--bg3)}
+  .stars-sm{color:var(--yellow);font-size:12px;letter-spacing:1px}
+  .drop-zone{border:2px dashed var(--border2);border-radius:8px;padding:36px;text-align:center;cursor:pointer;transition:all .2s}
+  .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--accent-light)}
+  .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:var(--text2)}
+  .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ─── CONFIG (injected by GitHub Actions) ──────────────────────────────────────
+const GSHEETS_CONFIG = {
+  clientEmail: '__SHEETS_CLIENT_EMAIL__',
+  privateKey:  `__SHEETS_PRIVATE_KEY__`,
+  spreadsheetId: '__SHEETS_SPREADSHEET_ID__',
+};
+
+// ─── STATIC DATA ──────────────────────────────────────────────────────────────
+const TRAINERS  = ['Alexandra','Claus','Peder','Elma','Naya','Salli'];
+const LOCATIONS = ['Valby','Bavnehøj','Dybbøl'];
+const LOC_CLS   = {'Valby':'loc-valby','Bavnehøj':'loc-bavnehoj','Dybbøl':'loc-dybboel'};
+const SECTIONS  = [
+  {id:'fysisk',       label:'Fysisk træning',    color:'#f59e0b',cls:'sc-fysisk'},
+  {id:'opvarmning',   label:'Opvarmning',         color:'#22c55e',cls:'sc-opvarmning'},
+  {id:'afleveringer', label:'Afleveringer',        color:'#3b82f6',cls:'sc-afleveringer'},
+  {id:'kontra',       label:'Kontra',              color:'#C8102E',cls:'sc-kontra'},
+  {id:'teknik',       label:'Teknik & afslutning', color:'#8b5cf6',cls:'sc-teknik'},
+  {id:'spil',         label:'Spil & taktik',       color:'#06b6d4',cls:'sc-spil'},
+  {id:'keeper',       label:'Keepertræning',        color:'#ec4899',cls:'sc-keeper'},
+  {id:'forsvar',      label:'Forsvarstræning',      color:'#f97316',cls:'sc-forsvar'},
+];
+const QUARTERS = [
+  {id:'Q2a',label:'Q2',months:'Maj – Jul',color:'#22c55e',season:'Sæsonstart'},
+  {id:'Q3', label:'Q3',months:'Aug – Okt',color:'#3b82f6',season:'Efterår'},
+  {id:'Q4', label:'Q4',months:'Nov – Jan',color:'#8b5cf6',season:'Vinter'},
+  {id:'Q1', label:'Q1',months:'Feb – Apr',color:'#f59e0b',season:'Forår'},
+  {id:'Q2b',label:'Q2',months:'Maj – Jul',color:'#22c55e',season:'Næste sæsonstart'},
+];
+const INIT_HAL  = [{"id":"ktc4qjmenu","name":"Ståtrold","description":"","stars":0,"tags":["opvarmning","leg"],"variants":"Fungerer også godt hvor man befris med en tackling af en spiller der kommer i fuld fart","link":"","catalog":"hal"},{"id":"obwheydmpr","name":"Katten, musen og plankeværket","description":"Katten skal fange musen, men musen gemmer sig bag et plankeværk af 1-3 spiller der holder i hånd","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"stonj8g0aw","name":"Cirkelbeskyttelse","description":"Hold af 4-5; tre spillere står i cirkel hånd i hånd (kan både være udadvendt eller indadvendt). No 4 skal fange en af de tre.","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"https://issuu.com/dhf_publikationer/docs/tr_ningsprogram_u11_uge_33_1_dd6f883722e78b","catalog":"hal"},{"id":"bvztytxode","name":"Kædetik","description":"","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"8xj98zuy70","name":"Haleleg","description":"","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"dn5pkzwl1b","name":"Beskyt din makker","description":"parrene stiller sig således at den ene har fat bagfra på den andens hofter. Det gælder nu for fangerne (2-4 styk) om at få fat med begge hænder på den bagerste spiller 'i parrene'","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"xi4bqzjk79","name":"Stoledans med veste eller bolde","description":"Når musikken stopper, eller der fløjtes, skal man fatte en bold/vest og nå ud til sidelinjen inden man bliver rørt af en af de der ikke fik fat i en","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"96lfpj7g8d","name":"Smittespredning","description":"En starter med en bunke veste. Når hun rører en, får de en stak af vestene og bliver også fangere. Sidste spiller der ikke er smittet har vundet","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"ken8kdirey","name":"Fange ved sammenspil","description":"2 spillere skal fange en 3. spiller med bolden - alm skridt og drible regler. På halvbane","stars":0,"tags":["opvarmning","leg"],"variants":"Finsk partibold er en variant, på et mindre område men med flere spillere. Knap så meget løben, men mere bold og sammenspil","link":"","catalog":"hal"},{"id":"rtnc6s3pm2","name":"Høvdingebold","description":"høvding ikke have 3 liv.","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"7u9y78u2kg","name":"Hent keglen","description":"Lav to hold per bane: hver spiller får et nummer, og når træneren råber nummeret, skal man hente keglen. Kan man nå tilbage uden at blive rørt af modsyanderen med samme nummer, får man point","stars":5,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"r9q5nuqvvo","name":"Murtik","description":"En er fanger, og skal røre så mange som muligt. Når træneren råber/fløjter 2 så har alle par der står skulder mod skulder helle, (3, 4 osv). Når træner råber SKIFT, er det ny fanger","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"i2k03lhfe0","name":"Kampen mod bolden","description":"cirkel med 6-8 spillere. En spiller sætter en aflevering igang, og løber modsat rundt","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"x767b4vlb9","name":"3 på stribe","description":"Lav matrix med 9 kegler, og giv 3 veste til hvert hold","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"pvg9iz4nrd","name":"Memory","description":"Brug et spil kort med par. Lad to hold løbe to og to ud og vende to kort ad gangen","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"uc91ygaark","name":"Behændigsdyst i cirkel","description":"Parvist står man i cirkel omkring en bunke bolde eller veste (par -1 )Yderste skal på signal læbe cirklen rundt og igennem benene på makkeren og hente en bold.","stars":0,"tags":["opvarmning","stafet","leg"],"variants":"","link":"","catalog":"hal"},{"id":"wn2vmetyr0","name":"Fange med liggende helle","description":"helle når man ligger ved siden af en anden. Der kan kun ligge to ved siden af hinanden. Når en ny ligger sig, skal yderste rejse sig","stars":0,"tags":["opvarmning","leg"],"variants":"","link":"","catalog":"hal"},{"id":"7kbi4devmy","name":"Partibold","description":"10 afleveringer i træk giver point. indenfor afgrænset område","stars":0,"tags":["opvarmning","småspil"],"variants":"Lav den evt med en navngiven direkte modstander","link":"","catalog":"hal"},{"id":"pshmcudiga","name":"Partbiold med fart","description":"10 afleveringer i træk giver point. indenfor afgrænset område. Hver gang man har rørt bolden skal man ud og runde en kegle i perifirien","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"bkrmlqo48z","name":"Baglinjebold","description":"2 hold dyster, og scorer ved at lægge bolden på modstanderens baglinje. Et skridt med bolden.","stars":0,"tags":["opvarmning","småspil"],"variants":"Tilføj at man får 5 englehop/armbøjninger hvis man røres af boldholder. Dette gør at man forsvarere forsøger at bryde afleveringer, i stedet for at mandsopdække. Og det skaber overtal","link":"","catalog":"hal"},{"id":"hcg8w3s6pk","name":"Partibold med midterfelt","description":"","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"https://traenerguiden.dgi.dk/guide/haandbold/exercises-overview/Alle%20%C3%B8velser%20-%20haandbold/1d324e3a-a4c8-4ff8-a545-aac6b8dcad0e","catalog":"hal"},{"id":"y5qoalanbi","name":"Partibold med scoring i kegleport","description":"Sæt kegleporte op, 1-2 mere end holdstørrelse Der scores ved at studse bolden imellem en port til en holdkammerat","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"y49yy2grby","name":"360 grader partibold","description":"Hold af 2 eller 3: Man scorer ved atl røre en kegle med bolden. Der må ikke dribles, men keglen kan angribes 360 grader rundt. (bevælgelse, forsvar skal tage højde)","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"y2elddmvr5","name":"Touch-rugby","description":"Score ved at løbe bag baglinje med bold. Røres man med bolden får modstanderen den. Der må kun afleveres bagud og tilsiden - ikke fremad.","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"rxxioowqaa","name":"Feltspil","description":"Scoring ved at lægge bolden til målfelt -  bolden gives til andet hold ved at berøre boldholder. Når et hold får bolden: 3 meter væk. Man må drible og tage tre skridt og kaste fremad.","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"tt2pk0f511","name":"1 mod 1 med tilspiller","description":"1 mod 1 på halv badmintonbane. der er en eller to faste tilspillere på sidelinje. scoring ved at lægge bolden på baglinje. man må tage 3 skridt med bold, men må bruge tilspiller så meget man vil","stars":0,"tags":["opvarmning","småspil"],"variants":"Kræver meget overvågning","link":"","catalog":"hal"},{"id":"to1k35haga","name":"Smørklat","description":"3 sidder på numsen mens smørklat jagter bolden stående","stars":0,"tags":["opvarmning","småspil"],"variants":"","link":"","catalog":"hal"},{"id":"akcdf25t1w","name":"Kegletårn","description":"Sæt en spids kegle på skummadras. 2 hold á 4 scorer ved at skyde keglen af madrassen, uden driblinger kun 3 skridt. Når bolden erobres, skal man ud og starte ved en markør","stars":0,"tags":["opvarmning","småspil"],"variants":"Den rette strategi for forsvar er at gå højt på boldholder, og lade de andre forsvarer stå tæt om keglen. Lidt 3-2-1 agtigt.","link":"","catalog":"hal"},{"id":"u3ukbs29p7","name":"Touchdown","description":"Ca 4 mod 4 omkring en stor madras. Man scorer ved at lande på madrassen med bolden. 3 skridt, ingen dribling. Ved erobring eller boldtab skal man starte fra en markering","stars":0,"tags":["opvarmning","småspil"],"variants":"Den rette strategi for forsvar er at gå højt så angriberne ikke kan nå ind til madrassen med 3 skridt","link":"","catalog":"hal"},{"id":"2f5vg6uao0","name":"Pingvinhop","description":"Hop med en bold mellem benene","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"https://www.instagram.com/reel/DSDcSTjDHpr/?igsh=aHdienUyZTZpcWdw","catalog":"hal"},{"id":"hhg01m5ezt","name":"Krabbegang","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"Forlæns og baglæns","link":"","catalog":"hal"},{"id":"azbq6jfksy","name":"Bearwalk","description":"Gå på alle fire","stars":0,"tags":["opvarmning","stafet"],"variants":"Forlæns og baglæns","link":"","catalog":"hal"},{"id":"mv4v5dxa41","name":"Møve op numsen","description":"Numsen skal hele tiden røre jorden","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"zp6lcbx79e","name":"Frøhop","description":"Mellem hvert hop skal begge håndflader røre jorden","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"19gw220nha","name":"Almindelig dribling","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"Forlæns og baglæns. Med højre og venstre","link":"","catalog":"hal"},{"id":"psfllb06g8","name":"Drible med to bolde","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"t66mhdml7n","name":"Dribling med bold ved fod","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"z46ryjwsav","name":"Sprint, ned og ligge på x farvede linjer","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"uvko42mbdb","name":"Sprint, vend om når træner fløjter","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"opjdyymsmj","name":"Sprint fra liggende","description":"","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"cdyreyueso","name":"Forfølgesløb","description":"Forfølgelsesløb på keglebane (2-4 på hvert hold). Kan evt laves så de der ikke løber dribler.","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"26nxsaj3ml","name":"Bowling","description":"Hvert hold skal løbe ud til en keglemarkering og bowle en bold af kegletop. Man skal selv hente bolden","stars":0,"tags":["opvarmning","stafet","leg"],"variants":"","link":"","catalog":"hal"},{"id":"55jceqdm2r","name":"Diamant","description":"Spurt frem og rør fire kegle i en diamant. Fungerer godt til holdstafet","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"8mk5bdjqy4","name":"Kålorm","description":"Bagerste på hvert hold zigzagger dribler op gennem rækken, og bowler til bagerste.","stars":0,"tags":["opvarmning","stafet"],"variants":"Vvariant: Bagerste skal løbe over rækken, og bowle tilbage. Tredje variant: løb op foran og bowl bolden under rækken i udgangsstilling","link":"","catalog":"hal"},{"id":"50dxli0igv","name":"Stafet med depeche","description":"Hold af 3 eller 4. Brug en vest som depeche, og lad stafet frem og tilbage i banens længde","stars":0,"tags":["opvarmning","stafet"],"variants":"","link":"","catalog":"hal"},{"id":"fhgx2gq8hr","name":"Bjørnefødsel","description":"To spillere holder ved hinandens ankler, og klemmer derved en 3 inde. Den 3 skal komme ud så hurtigt som muligt","stars":0,"tags":["opvarmning","styrke","leg"],"variants":"Kræver ret grundige instrukser og at man er tryg i sin krop","link":"","catalog":"hal"},{"id":"8pomtp8v0w","name":"Aben i træet","description":"Sammen parvist. Spiller 1 skal kravle hele vejen rundt om makker uden at røre jorden. Vigtigt de er lige store.","stars":0,"tags":["opvarmning","styrke","leg"],"variants":"","link":"","catalog":"hal"},{"id":"6c1p38q1pr","name":"Søstjernen","description":"Vend en liggende søstjerne om. Søstjernen skal holde så godt fat i jorden som muligt","stars":0,"tags":["opvarmning","styrke","leg"],"variants":"","link":"","catalog":"hal"},{"id":"de24uba1zi","name":"Sumokamp","description":"2 og 2: Skub den anden ud over en linje. Udgangsstilling kan varieres: Krammer, Bryst mod bryst uden arme, ryg mod ryg","stars":0,"tags":["opvarmning","styrke","tvekamp"],"variants":"","link":"","catalog":"hal"},{"id":"p2zxzvptyp","name":"Trillebør","description":"Klassiker.","stars":0,"tags":["opvarmning","styrke","leg"],"variants":"","link":"","catalog":"hal"},{"id":"aqrp1l1gsr","name":"Spejlet / Juke out","description":"Angriber skal runde en af to kegler før forsvaren rører","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"https://www.facebook.com/share/r/eyugB1Tej3zKw9iD/?mibextid=WC7FNe","catalog":"hal"},{"id":"73oaz44i60","name":"Rør din makker så mange gange som muligt","description":"2 og 2 - den ene skal fange den anden så mange gange som muligt på 10 sekunder: Bliver hulter til bulter og meget intensivt.","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"Variant: Den ene skal drible i 15 sekunder uden den anden slår bolden væk","link":"","catalog":"hal"},{"id":"6ghf3ilw2h","name":"Følg din makker med dribling","description":"2 og 2: Bold hver. Efter første fløjt, skal spiller 1 følge spiller 2. Ved næste fløjt, skal 1 drible fra 2. Ved tredje fløjt skal de stoppe. Kan spiller 2 røre 1 får hun point.","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"400pjktikv","name":"Forsvar bolden","description":"2 og 2 forhindre den anden i at røre en bold liggende på jorden i 5 sek","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"Varier afstand til bolden, afstand mellem spillerne. Start siddende, liggende","link":"","catalog":"hal"},{"id":"ndd117gv9m","name":"Hånd i hånd dyst","description":"2 og 2:  En Dribler, mens den anden skal slå den væk","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"chcbbpmldd","name":"Slå den andens bold væk","description":"2 og 2;: dribler bold hver: slå den andens bold væk.","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"Variant: Giv folk en vest som hale, som de også skal passe på","link":"","catalog":"hal"},{"id":"yakjb2y858","name":"Sten-saks-papir","description":"2 og 2: Brug hele kroppen til at lave sten-saks-papir. Vinderen skal nå til baglinjen uden at blive rørt","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"Variant: lige og ulige","link":"","catalog":"hal"},{"id":"cjqirdv09l","name":"Stik af med bolden","description":"2 og 2: Som sten saks papir, men istedet kaster man bold til hinanden. Den der har bolden når der fløjtes skal stiklke af","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"uucin65hz5","name":"Stik af med objektet","description":"2 og 2 (3 går også): Bold, Kegle, Vest eller sko i midten - alle tripper - hår, skulder, knæ, albue, vest","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"d97iqv3hgq","name":"Dozy Doe","description":"2 og 2: stå på et ben, arme over kors og skub. Først til at sætte andet ben ned taber","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"rk151jue04","name":"Sid på hug","description":"2 og 2: sid på hug. Få den anden til at miste balancen","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"gstp6nzawq","name":"Hurtige fødder","description":"2 og 2: hold hinanden i hånden. Træd den anden over fødderne så mange gange som muligt","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"i6h3dne1yi","name":"Klap på lår","description":"2 og 2: hold hinanden i hånden. Klap den anden på låret så mange gange som muligt","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"2t4p86is4o","name":"Klap over hånd","description":"2 og 2: Lig overfor hinanden på alle fire. Klap den anden over håndroden så mange gange som muligt","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"7jd9j708t6","name":"Træk hinanden","description":"2 og 2: spiller 1 har armene/vest omkring spiller 2 bagfra. Spiller 1 skal nu trække spiller 2 til et vist punkt","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"sf1gh7b5nu","name":"Forsvarsbevægelsesbane med makker","description":"2 og 2: sidevejs og fremad ved feltet ved kegler langs felt, sidevejskapløb på langsiden (overfor makker), \"\"spejlet\"\" på en anden langside. hinkekapløb (skift ben halvvejs) på tværs\"","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"2l6iflxca4","name":"Stregspillerøvelsen","description":"2 og 2: Hold den anden væk fra bolden på jorden ved at bruge bagdelen. Lad stregspilleren starte inderst, og angriberen tælle ned fra 3","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"nfnkwzkjus","name":"Stregspillerøvelsen med indstik","description":"3 og 3: Stregspillerøvelsen, men hvor en 3 spiller (tilspilleren) skal stikke den ind til stegspiller, som så skal ligge bolden på keglen","stars":0,"tags":["opvarmning","tvekamp","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"1qtfob8d1y","name":"Rør bjørnens fødder","description":"2 og 2: Spiller 1 står på alle fire (bearwalk). Spiller 2 skal forsøge at røre spiller 1s fødder","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"zz517x7ydk","name":"Parvis haleleg","description":"2 og 2: Spiller 1 har en vest i bukserne bagtil. Spiller 2 skal hive den væk","stars":0,"tags":["opvarmning","tvekamp","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"yot627dia3","name":"Opvarmning af arm","description":"Parvist kast","stars":0,"tags":["aflevering"],"variants":"Træd frem i kastet, lange, hopskud, sidelæns, kig væk, bagom ryggen, een hånd,  høj arm, knæk, mellem benene, studs, hop med vip, 3 skridt, sidde ned, sidde på knæ, forkerte hånd, samlede ben","link":"","catalog":"hal"},{"id":"ciahryat3r","name":"Aflevering efter skudfinter","description":"Med skudfinter (træn klem)","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"qvvcqn77wa","name":"Aflevering med forspænding","description":"Højrehåndede står på etben (højre) med høj arm, tager et skridt frem på venstre med forspænding, hopper så højt som muligt og aflevere","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"n3ddr5503q","name":"Afleveringer med tyveri","description":"2 og 2: Afleveringer - stjæl de andres bolde. Må kun stå med bold i 3 sek","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"28hprtor9c","name":"Sidelæns stempel","description":"2 og 2 eller 3 og 3: Sidevejs afleveringer med stempelbevægelse","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"vkjesd2ki6","name":"V bevægelse","description":"2 og 2: En arbejder i V om en kegle, den anden er tilspiller. Skift flere gange. fokus på at være retvendt","stars":0,"tags":["aflevering"],"variants":"","link":"https://traenerguiden.dgi.dk/guide/haandbold/exercises-overview/Alle%20%C3%B8velser%20-%20haandbold/73c377ed-46c0-4323-84a2-b4dea3fa5b69","catalog":"hal"},{"id":"fuwwd6d0rd","name":"Aflevering efterfulgt af tackling","description":"2 og 2 eller 3 og 3: Få angriber til at hoppe. Fokus på armstilling","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"8vqlfqifnq","name":"Siddende afleveringer","description":"Med front til og siden til. Ben må ikke røre jorden","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"ukugxvw4yv","name":"Afleveringer fra sidelinje til sidelinje","description":"2 og 2. Afleveringer fra sidelinje til sidelinje: ene løber baglæns anden forlæns. Pres hinanden","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"0vbigz0kmv","name":"Afleveringer 3 og 3","description":"AK, presstempel, fransk kryds / jugo","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"scmg9w2xf2","name":"Afleveringer med finterr","description":"3 og 3; 3 skridtsfinter med hopskuds aflevering - spilleren i midten er passiv. Spiller der finterr bliver derefter den passive forsvar. Lav derefter med skudfinter venstre om. TIl sidst med fuld forsvar","stars":0,"tags":["finter","aflevering"],"variants":"Giver også forsvarsøvelse","link":"","catalog":"hal"},{"id":"9kj225tnxy","name":"Aflevering med puls","description":"3 og 3 med to bolde:  løb over og modtag (skift hurtigt)","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"bh5p3jvdj9","name":"Aflevering med løb","description":"3 og 3 med to bolde: Midtermand runder de 2 andre og laver afleveringen","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"npby7bkdk1","name":"Aflveringer back-center-back","description":"Fokus på stempel, tilbageløb og timing","stars":0,"tags":["aflevering"],"variants":"","link":"https://traenerguiden.dgi.dk/guide/haandbold/exercises-overview/Alle%20%C3%B8velser%20-%20haandbold/074512c0-6f20-4514-85c7-9c53cfc673f2","catalog":"hal"},{"id":"awgbx4e3j6","name":"Afleveringer i fart","description":"2 og 2 eller 3 og 3: Afleveringer op ad fuldbane efterfulgt af skud. Max 4 afleveringer","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"wlxwy3yelz","name":"Aflevering til spiller i fart","description":"3 og 3: Backs skal runde en kegle. Første til at runde er angriber, den anden er forsvarer. Midt skal ligge en aflevering til angriber i fuld fart","stars":0,"tags":["aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"gxdpdbb7fh","name":"2 og 2 op ad banen","description":"2 og 2 op af banen, begge retninger med en let afslutning  (for at skabe tempo, så kan man også spille med at bold på træværk giver point)","stars":0,"tags":["aflevering","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"hwk5zy6zmh","name":"2 og 2 op ad banen indvendigt","description":"2 og 2 op igennem midten af banen med hurtige afleveringer. Afslut, og så tilbage på ydersiden hvor man laver lange afleveringer","stars":0,"tags":["aflevering","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"qnn7v3xbz7","name":"Fløjraket","description":"2 og 2: Start ved midterlinje. Fløj og back i begge retninger. Fløj sætter gang i bolden fra midt og spurter mod mål. Back afleverer til fløj, så denne kan tage tre skridt og afslutte. Derefter den anden retning","stars":0,"tags":["aflevering","hurtighed"],"variants":"","link":"","catalog":"hal"},{"id":"w3nvsq8opz","name":"Backraket","description":"2 og 2 på smalle backs. En sætter gang i bolden ved at kaste til tilspiller i midt, den anden har én lang god aflevering, kom i fart. Fast tilspiller til at sætte igang med god aflevering.","stars":0,"tags":["aflevering","hurtighed"],"variants":"ariation med en forsvarsspiller eller 2x Georg at skude over","link":"","catalog":"hal"},{"id":"vjnq6r7teq","name":"Skud fra siddestilling","description":"Skud, opspring efter siddende på bænk. Gerne over pude fra back, og på kant af pude fra fløj. Ikke røre bænk med hænderne, brug core !","stars":0,"tags":["skud","styrke"],"variants":"","link":"","catalog":"hal"},{"id":"lgpbjq8zbq","name":"Duel på buen","description":"1 mod 1: Forsvar og angreb bytter plads, forsvarer tilspiller > 1:1. Hæng evt veste op/ned i målet at skyde efter","stars":0,"tags":["finter","duel"],"variants":"","link":"","catalog":"hal"},{"id":"34apz3jg8n","name":"finterrr i åben ramme","description":"1 mod 1 i afgrænset rum med tilspil og skud. Angriber skal være kreativ og selv finde på løsninger (finterrr, skud mv)","stars":0,"tags":["finter","duel"],"variants":"God hvis der efgerfølgende øves pres, fx 3 mod 3","link":"","catalog":"hal"},{"id":"hsjrfie2wa","name":"finterr i åben ramme med skrå tilgang","description":"øv først uden forsvar, derefter 1:1. God til at lære at gå begge veje.","stars":0,"tags":["finter","duel"],"variants":"","link":"https://www.instagram.com/reel/DGi1tI9NG6c/?igsh=NnVobGZzNTVyeDg0","catalog":"hal"},{"id":"crxb9np2ez","name":"finterbane","description":"Stil en masse kegler op langs sidelinjen og lav spillerene lave treskridtsfinterr  på hver kegle - afslutning på, evt efter hink. NB: lad spiller lande imellem hver kegle med samlede ben.","stars":0,"tags":["finter","duel"],"variants":"Variant, lad dem gå den anden vej som i video","link":"https://www.facebook.com/share/r/1Vzo6vkuD7/?mibextid=wwXIfr","catalog":"hal"},{"id":"s4w3k1ubvl","name":"Duelspil efter undergang","description":"Undergang hvor midt udfordrer en forsvarer efter at komme i bue ud på back (Træner er fløj/tilspiller, midt og back cirkulerer naturligt). 10 ture per person","stars":0,"tags":["finter","duel"],"variants":"","link":"","catalog":"hal"},{"id":"m9apd655v0","name":"fintervarianter i keglefelt","description":"finter bevægelse med afslutninger (efter nedhop fra bænk, hop over buk eller lignende, så man lander på samlet): Hop ned i keglemarkering, sidestep ud af keglemarkering, skridt fremad og skyd. Begge veje. Opmærksom på at benene skal krydse når man går modsat af skudarm","stars":5,"tags":["finter","duel"],"variants":"Vaiant: Skud fra samlet når man lander (aka fremfaldsskud). Variant to: først den ene vej, så den anden (dobbeltfinter)","link":"https://www.instagram.com/p/DPpOMtKCBrD/?img_index=1","catalog":"hal"},{"id":"b964q0cygh","name":"Vending i keglefelt - stregspil","description":"Streg variant med ryggen til mål: Få tilspil af næste spiller i rækken, og dd af keglemarkering til ene og anden side. Øv at der tages to skridt. Lad dem vende rotere både indad og udad, og lær dem at indad er lettest","stars":5,"tags":["finter","duel"],"variants":"","link":"","catalog":"hal"},{"id":"y69a0s9fny","name":"Afvisning","description":"1 mod 1 med tilspil eller fra dribling. Forsvarer skal forsvare mellem to kegler","stars":0,"tags":["forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"pad5f3qyh7","name":"Stjæl bold eller afvis","description":"Forsvar mod dribling ( først en tackling angriber accepterer, derefter skal forsøge at drible til duel) - forsvar skal forsøge at stjæle dribling, sekundært afvise","stars":0,"tags":["forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"xa2v7m0r6i","name":"Færdiggørelse af tackling","description":"Færdiggørelse af tackling: lad forvarer have føling på skydarm. Når træner fløjter skal angriber nå frem til en kegle","stars":0,"tags":["forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"qievifizod","name":"Tackling, så parade","description":"Forsvar: lav tackling på angriber i lille område efterfulgt af parade af hopskud (efter tilspil)","stars":0,"tags":["forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"586vaj750e","name":"Forsvar af stregspiller","description":"360 grader (3-4) angribere, 2-3 forsvar, 1streg i midten. Angribere scorer ved at spille streg. Forsvarer scorer ved erobring eller røre boldholder","stars":4,"tags":["opvarmning","småspil","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"sviwfa2q4v","name":"Kvadratbold","description":"1 forsvar, 3 angribere: angribere må kun bevæge sig på et ca 3x3 kvadrat. Forsvar skal røre boldholder eller stjæle bolden","stars":0,"tags":["opvarmning","småspil","forsvar"],"variants":"fungerer godt. god til opvarmning","link":"","catalog":"hal"},{"id":"jrjxlqk0v5","name":"Stress med udkast","description":"Spillerne er samlet i to diagonale fløje. Når foregående spiller har afsluttet, skal denne løbe retur, og næste spiller kaster ind til udkaster/målvogter","stars":0,"tags":["kontra"],"variants":"","link":"","catalog":"hal"},{"id":"uz9evva7h2","name":"2 og 2 med retur","description":"2 og 2 løbes der kontra. Afslutter går hjem, den der ikke afslutter er forsvar. Dribling i nødstilfælde","stars":0,"tags":["kontra","returløb"],"variants":"fungerer rigtigt godt som beslutningsspil, fart og løb. Stor bane. 16-18 spillere er perfekt. Lav evt øvelse uden retur inden","link":"","catalog":"hal"},{"id":"daeit8c0na","name":"3 mod 3 med retur","description":"3 og 3 løbes der kontra. Afslutter går hjem, de 2 andre er forsvar. Ingen dribling. Målvogter sætter gang i bold","stars":0,"tags":["kontra","returløb"],"variants":"","link":"","catalog":"hal"},{"id":"qirqbmqmpv","name":"3 mod 3 med forsvar i én retning","description":"3 løber kontra i een retning mod 2 forsvarer. 2 af angriberne bliver nye forsvarer (de der ikke afslutter). God hvis der kun er en træner.","stars":0,"tags":["kontra"],"variants":"","link":"","catalog":"hal"},{"id":"u1fkhwnivt","name":"Kontra med bande","description":"Kontra 1 mod 1 med fast bande/tilspliler op af banen fra lidt før midterlinje.","stars":0,"tags":["kontra","returløb"],"variants":"Også gerne med 2 mod 2. Så skal de starte længere tilbage","link":"","catalog":"hal"},{"id":"2fvuzl8x62","name":"Duelkontra 2 og 2","description":"To spillere om én bold spiller mod hinanden. Bolden lagges pa midten af händboldbanen på en stol, og de to spillere skal have hver en finger pa bolden. Pà signal løber spillerne  ud om hver sin kegle/stol  og tilbage efter bolden.Den spiller, der forst fär bolden er angrebsspiller.","stars":0,"tags":["kontra","returløb"],"variants":"Variant: Lav en tilspiller der kan være bande","link":"","catalog":"hal"},{"id":"sxoqvtjztr","name":"Lange udkast","description":"Kontra på lang aflevering i begge ender - fast udkaster. Fokus på at gribe uden at sætte farten ned","stars":0,"tags":["kontra"],"variants":"","link":"","catalog":"hal"},{"id":"qmfq2rztj2","name":"2 og 2 op ad banen med forsvar","description":"2 mod 2 på en bane delt på langs - kan foregå i begge retninger på een gang. 2 er forsvarer i en retning, 2 i den anden.","stars":0,"tags":["kontra"],"variants":"","link":"","catalog":"hal"},{"id":"9nirj9sqfa","name":"Shootout a la beach","description":"Målvogter skal kaste ud til angriber der starter ved midterlinje. Bolden er tabt hvis den rører jorden (misset aflevering, dribling)","stars":0,"tags":["kontra"],"variants":"","link":"https://www.youtube.com/watch?v=bWS-E1jvyqs","catalog":"hal"},{"id":"bargb82pgw","name":"2 og 2 mod 1 forsvarer","description":"forsvarer står på egen banehalvdel, og bliver angriber derefter. Den anden angriber sætter bold i gang med målvogter. Obs på at der kommer en ny forsvar ind.","stars":0,"tags":["kontra"],"variants":"","link":"https://www.facebook.com/share/r/1ADB5TU578/?mibextid=wwXIfr","catalog":"hal"},{"id":"0ruqu1ompu","name":"3 mod 3 med recovering defender","description":"3 angribere starter ved midterlinje. 2 forsvarer står på buen, 1 starter bag angriberne","stars":0,"tags":["kontra","returløb"],"variants":"","link":"https://www.facebook.com/share/v/187XM8Qfft/?mibextid=wwXIfr","catalog":"hal"},{"id":"jg52lj6ofv","name":"Skud efter stempelbevælgelse","description":"3 skridt frem, aflevering til tilspiller, 3 skridt tilbage, tilspil og afslutning (marker ved kegler). Fokus på tilbageløb","stars":0,"tags":["skud"],"variants":"","link":"","catalog":"hal"},{"id":"1508tu6dic","name":"Skud fra undergang","description":"Undergang: Skud fra ny back. giver naturlig udskiftning i de tre bagerste.","stars":0,"tags":["skud"],"variants":"Variant: Skud fra ny midt. Begge varianter kan laves med paradespillere","link":"","catalog":"hal"},{"id":"8rtbq5gwzt","name":"Fløj/back skudøvelse - udad","description":"Fløj og back i begge sider med hver sin bold. Back spiller midt (tilspiller), laver presudspil til høj fløj, og får en afslutning over 2er. Begge afslutninger skal være i fart og med ordenligt tilløb","stars":0,"tags":["skud"],"variants":"","link":"https://godhaandbold.dk/?page_id=54","catalog":"hal"},{"id":"uq9cln4i0n","name":"Fløj/back skudøvelse - indad","description":"Fløj og back i begge sider med hver sin bold. Back spiller midt (tilspiller), laver lang aflevering til dyb fløj, og laver bueløb og afslutter over 3er","stars":0,"tags":["skud"],"variants":"","link":"https://godhaandbold.dk/?page_id=54","catalog":"hal"},{"id":"9cie97nia0","name":"Skud fra midt efter pres fra back","description":"Skud fra midt efter pres fra back(rigtigt pres, ikke passivt) Træner er tilspiller på fløj. Øv at time afslutning med fart og pres.","stars":0,"tags":["skud"],"variants":"Kan også laves back, midt, back","link":"","catalog":"hal"},{"id":"03vbs7ownu","name":"Krydsøvelser","description":"Skud efter AK i to rækker, hvorefter man krydser næste op. Sæt sigtekegler op for midt","stars":0,"tags":["skud"],"variants":"Variant: Spillerne krydser ikke, men løber på yderside af sigtekeglerne","link":"https://www.instagram.com/reel/DQrTj5tCJOp/?igsh=MTgzYmFuMDFlaW5oYQ==","catalog":"hal"},{"id":"075ls77ci2","name":"Skud fra backs efter tilspil","description":"Skud fra begge backs efter tilspil fra midt","stars":0,"tags":["skud","aflevering"],"variants":"Variant: Backs laver forløb","link":"https://danskhaandbold.dk/ovelsesbank/ovelse?id=136","catalog":"hal"},{"id":"68ujs23roh","name":"Skudbane","description":"Skudbane, hvor man ikke står stille: Lav stationer der kombinerer skud efter  tilspil, 3 finter på papmand, yderside","stars":0,"tags":["skud"],"variants":"","link":"","catalog":"hal"},{"id":"xkzphowpgk","name":"Skud fra position uden tilspil.","description":"15 skud fra hver spiller. Vælg mellem 2-3 positioner. Repition er vigtigere end fart her","stars":0,"tags":["skud"],"variants":"","link":"","catalog":"hal"},{"id":"possp2ofgw","name":"Fløjskud: Skud fra hjørnet","description":"Hop uden tilløb fra kegletop lagt på baglinje. Skyd efter vest hængt op. Illustrerer behovet for godt indspring","stars":0,"tags":["skud"],"variants":"","link":"","catalog":"hal"},{"id":"ancywvjbt8","name":"Fløjskud efter indspring","description":"Indspring efter 3 skridt. Gerne over hæk. Tilt  målet så fokus bliver på indspring, og de 3 skridt. Virker godt, og giver timing","stars":0,"tags":["skud"],"variants":"Lav gerne en fløjskudsbane med tre minimål; indspring højre, venstre og stående","link":"","catalog":"hal"},{"id":"8tv33455aq","name":"Fløjskud med glidefald","description":"Øv glidefald før fløjskud. Pas på med at det ikke tager fokus fra at hoppe højt.","stars":0,"tags":["skud"],"variants":"","link":"","catalog":"hal"},{"id":"m8x2lian02","name":"Assisten","description":"Kombineret afleveringsøvelse og skud: Skud fra back efter tilspiti fra midt. En spiller tager 10 tilspil i træk, for at øve at ramme en back i fart der skyder. Kombiner gerne med målmandstræning","stars":0,"tags":["skud","aflevering"],"variants":"","link":"","catalog":"hal"},{"id":"olwne836bf","name":"Back--midt-back retur","description":"Back-midt-back pres og retur med afslutning lige på (variant med yderside). Hver backrække har bolde. Når HB har afsluttet, starter VB med det samme pres.","stars":0,"tags":["aflevering","skud"],"variants":"God øvelse. Fungerer godt med VB, M, HB - dog giver det ikke stress nok uden forsvar. Kan med fordel efterfølges af 3 mod 3 på et mål","link":"","catalog":"hal"},{"id":"srjqgte0qo","name":"fløj-back-midt pres retur","description":"og retur med afslutning fra fløj. fokus på tempo, timing og placering. Hav 2 midt, og 2 backs uden bold med resten i fløjen med bold","stars":0,"tags":["aflevering","skud"],"variants":"God til timing og grundspil uden det bliver for kedeligt. Når den sidder så fokuser på selve presset","link":"","catalog":"hal"},{"id":"j965o801vd","name":"Basalt 3pres","description":"Pres  3 mod 3 (med trænere i fløj): Lad backs starte pres. Øv i at angribe på inderside når presset startes, og så presse udad. Kør pres frem og tilbage, indtil træner giver grønt lys til at gå på mål","stars":0,"tags":["aflevering","skud"],"variants":"","link":"","catalog":"hal"},{"id":"cm35mwu4wg","name":"3 mod 3 på halvbane","description":"3 mod 3, forsvar mellem kegler. Angribende hold laver pres fra back, alternativt midt. (Angribere kan opfordres til  Snurrebevægelse, kryds, forløb). Forsvar øver højde og opbakning. Byt forsvar efter 3 brændte eller 10 angreb","stars":5,"tags":["sammenspil","beslutning","duel"],"variants":"Virker godt. Ikke for nybegyndere","link":"","catalog":"hal"},{"id":"ca5w0mqnf0","name":"4 mod 4 i midtzone på halvbane","description":"3 mod 3, forsvar mellem kegler. Angribende hold laver pres fra back, alternativt midt. (Angribere kan opfordres til  Snurrebevægelse, kryds, forløb). Forsvar øver højde og opbakning. Byt forsvar efter 3 brændte eller 10 angreb","stars":0,"tags":["sammenspil","forsvar","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"piii2czhuv","name":"Fuldt grundpres","description":"5 på buen (3 bagspillere, resten på fløjene med hver sin bold): Pres, med udspil til fløj - så VF starter en bold, HB starter pres, og så presses derud til VF til skud. Derefter starter HF.
+Man kan også lade Midt og HB lave AK.
+Sæt gerne skumgummipuder eller store kegler for at øve hvor presset skal lægges for alle 3 bagspillere.","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"Variant: Spil med 1 forsvar i hver side, eller 2 forsvarer der skifter side, så det essentielt bliver \"gode beslutninger\" på back/fløj","link":"","catalog":"hal"},{"id":"dci5m6lnbv","name":"5 mod 5 på halvbane","description":"fokus på placering og pres; hvordan skaber man et overtal. 3 angreb og byt, eller 10 angreb","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"på den vis kan der øves afslutninger på stort mål i den anden ende","link":"","catalog":"hal"},{"id":"mdq6xuq8ss","name":"6 mod 6 på halvbane","description":"fokus på stregen og pres; hvordan skaber man et overtal ved at bruge stregen. 3 angreb og byt, eller 10 angreb","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"rbsgcwy31v","name":"2 mod 2 på halvbane","description":"2 mod 2 forsvar mellem kegler. God forsvarsøvelse og dueløvelse","stars":0,"tags":["sammenspil","beslutning","duel"],"variants":"","link":"","catalog":"hal"},{"id":"9pxjufr12x","name":"2 mod 2 på halvbane med streg","description":"2 mod 2 (1 er streg). Med tilspiller. God til at træne screening, forsvar og beslutninger. Forberedse til 6-0 forsvar","stars":0,"tags":["sammenspil","beslutning","forsvar"],"variants":"Enten i midtzone eller på back","link":"","catalog":"hal"},{"id":"elchmsv18y","name":"Gode beslutninger - udspil","description":"1 forsvar  mod back + fløj. back får tilspil fra midt og må ikke spille retur. Kan vælge at gå selv eller lave udspil. Marker grænse med kegle","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"j1xhr28djw","name":"Gode beslutninger - 3 midtblok","description":"2 forsvarer mod back, midt, back. ingen retur.","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"mbg3wwbmxl","name":"Gode beslutninger - 4 midtblok","description":"3 forsvarer mod back, midt, back, streg. ingen retur","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"tjl0mz1x6k","name":"Gode beslutninger - overgang","description":"1 forsvarer, 1 midt/back, 1 streg/overgang. Lad midt/back få tilspil.","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"vlqb3mqz0n","name":"Offensivt forsvar","description":"3 mod 3, eller 4 mod 4 (inkl streg). Forsvarer møder boldholder uden for 3meter. Fokus på forløb, fart og coolness","stars":0,"tags":["sammenspil","duel","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"e2bcvwoz7w","name":"3 mod 3+1 stationær streg.","description":"Angreb øver beslutninger, og forsvar skal være gode til at stemple og være boldorienteret - giv forsvar point for spilstop. God forberelse til 3-2-1","stars":0,"tags":["sammenspil","beslutning","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"1zie4yr5vm","name":"Futtog: Fløjovergang med bold","description":"4 mod 4. Fløj, midt, 2x backs. Sidste fløj er blind. Fløj løber overgang med bold ind til modsatte 3er. Midt laver returaflevering til den side overgangen kom fra. Forsvar skal tælle rigtigt.","stars":0,"tags":["sammenspil","taktik","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"09bfg44l0m","name":"Futtog: Fløjovergang med bold med streg","description":"5 mod . Fløj, midt, 2x backs, sterg. Sidste fløj er blind. Fløj løber overgang med bold ind til modsatte 3er. Midt laver returaflevering til den side overgangen kom fra.  Streg står på inderside af fløj. Den pressende back skal træffe det gode valg","stars":0,"tags":["sammenspil","taktik","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"41tnv12fox","name":"Blind overgang","description":"4 mod 4. Fløj, midt, 2x backs. Fløj løber overgang uden bold forbi  modsatte 3er. Modsatte back starter pres, og overgangen skal time med det","stars":0,"tags":["sammenspil","taktik","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"b9pr4xy87o","name":"Blind overgang med streg","description":"5 mod . Fløj, midt, 2x backs, sterg. Sidste fløj er blind. Streg står på inderside af 2er i den side overgangen kommer fra. Fløj løber overgang uden bold forbi  modsatte 3er. Modsatte back starter pres, og overgangen skal time med det. Den pressende back skal træffe det gode valg","stars":0,"tags":["sammenspil","taktik","forsvar"],"variants":"","link":"","catalog":"hal"},{"id":"m7yvsddvtq","name":"5 mod 4 på halvbane","description":"Øv pres og gode beslutninger, og lær forsvarer at bevæge sidevejs","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"260qzjlvlc","name":"4 mod 4 med AK","description":"Blinde fløje. Øv gerne returpres med screening. fokus på fart og timing","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"","link":"","catalog":"hal"},{"id":"f21q4dt7ju","name":"Rullepres","description":"Øv fløjoprulning som returpres","stars":0,"tags":["sammenspil","beslutning","taktik"],"variants":"Skal laves med forsvar ellers giver det ikke noget","link":"https://issuu.com/dhf_publikationer/docs/tr_ningsprogram_u11_uge_2_1_36489f85d63306?fr=sNTQ5OTgzNzE4MDc&utm_source=agillic&utm_medium=email&utm_campaign=Trænningsprogrammer+U11+Uge+52","catalog":"hal"},{"id":"za5icqx1yh","name":"Keeper: Skud i bunden af målet","description":"En række skud til ene fod. Over til modsatte stolpe efter hvert skud (grib vest eller klap). Fokus på at både få fod, ben og hånd med","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"a3saa4zrka","name":"Keeper: Skud i toppen af målet","description":"En række skud til ene hånd. Over til modsatte stolpe efter hvert skud  (grib vest eller klap). Fokus på at både få fod, og krop med","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"m35hvx63g1","name":"Keeper: Skud i siden af målet","description":"En række skud i forudbestemt side. Kan være højt eller lavt. Fokus på bevægelse i målet, og arm, ben og så meget af kroppen er bag bolden","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"pvssukrmk4","name":"Keeper: Fløjskud","description":"Placering ved fløjskud.","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"i4ulskrp2n","name":"Keeper: Hurtige bevægelser","description":"To skud i træk i hver sin side. Fokus på at få arm og ben med, og krop bag bolden","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"qf8amp50tq","name":"Keeper: Nærskud","description":"Øv nærskud over hovedet og i hoften. Fra fløj eller back, instruer skytter. Fokus på at have armene med op og følg bolden","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"hv1t7qgd9d","name":"Keeper: Sidebevægelser","description":"Følg bolden på buen: skud fra hele buen fra ene side til anden. Fokus på bevægelse i målet","stars":0,"tags":["keeper"],"variants":"","link":"","catalog":"hal"},{"id":"cd1lkkmvrv","name":"Kamp med regler","description":"","stars":0,"tags":["kamp"],"variants":"","link":"","catalog":"hal"},{"id":"kuk107vrcu","name":"Kaoskamp","description":"Kamp med shotclock på 15 sekunder hvis modstanderen ikke scorer","stars":0,"tags":["kamp"],"variants":"","link":"","catalog":"hal"},{"id":"rhksro9ovs","name":"Kamp med bonusbold","description":"Skal hurtigt op af banen. Kontra eller 2 bølge giver ekstra. Målmand skal have ekstra bolde klar","stars":0,"tags":["kamp"],"variants":"","link":"","catalog":"hal"},{"id":"8mvj4ctmfa","name":"3 kamp","description":"Kamp med tre hold i rotation. Sørg for det bliver intenst, med hurtige løb op af banen","stars":0,"tags":["kamp"],"variants":"","link":"","catalog":"hal"},{"id":"ccp5elfhcz","name":"Minikamp","description":"Kamp på minibane. Helbanepres, og uden dribling","stars":0,"tags":["kamp"],"variants":"","link":"","catalog":"hal"},{"id":"1uy8et4926","name":"Faldteknik: Glidefald fra siddende","description":"Sæt jer på knæ, sæt af fremover, og skub jer fremad med hænderne - OG KIG OPAD","stars":0,"tags":["faldteknik"],"variants":"","link":"https://www.youtube.com/watch?v=hRkQN3IHjWs&list=PLNssDT7zACUVFlcVKx81QAsahz_MtLLTS","catalog":"hal"},{"id":"amkripafhl","name":"Faldteknik: Glidefald efter kast fra siddende","description":"Sæt jer på knæ med en bold, sæt af fremover, kast bolden og skub jer fremad på gulvet med hænderne","stars":0,"tags":["faldteknik"],"variants":"","link":"","catalog":"hal"},{"id":"n5gxvdelrb","name":"Faldteknik: Glidefald fra stående med let tilløb","description":"Stå oprejst, tag et par hurtige skridt, land på brystet, og skub jer fremad","stars":0,"tags":["faldteknik"],"variants":"","link":"https://www.youtube.com/watch?v=31H56oMMABU&list=PLNssDT7zACUVFlcVKx81QAsahz_MtLLTS&index=2","catalog":"hal"},{"id":"6i116z5gaa","name":"Faldteknik: Glidefald  efter  afslutning i fart","description":"Hop indover med  en bold, kast bolden, land på brystet og skub jer fremad på gulvet med hænderne","stars":0,"tags":["faldteknik"],"variants":"","link":"https://www.youtube.com/watch?v=fjQXd6bwp5Y&list=PLNssDT7zACUVFlcVKx81QAsahz_MtLLTS&index=3","catalog":"hal"},{"id":"8upr7m1s7y","name":"Faldteknik: Glidefald  efter  afsætning fra bænk","description":"Hop med tilløb op på bænk med  en bold, kast bolden, land på brystet og skub jer fremad på gulvet med hænderne","stars":0,"tags":["faldteknik"],"variants":"","link":"","catalog":"hal"},{"id":"ljcuhhruur","name":"Faldteknik: Stikbold med glidefald","description":"Stikbold. Bliver man ramt skal man stille sig i bro. Man befries hvis en makker laver glidefald under en","stars":0,"tags":["faldteknik","opvarmning"],"variants":"","link":"https://www.youtube.com/watch?v=XVOW56N2xhA&list=PLNssDT7zACUVFlcVKx81QAsahz_MtLLTS&index=4","catalog":"hal"}];
+const INIT_PLYO = [{"id":"wlac604m5u","name":"Kontrollerede hop på samlet","description":"Almindelige hop på samlede på stedet, hvor vi lander kontrolleret (dvs non consec) (10)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"Land på forfoden!","link":"","catalog":"fys"},{"id":"3yuhnxbid9","name":"Pogo hops","description":"Almindelige hop på samlede på stedet, (consec) (10).","stars":5,"tags":["opvarmning","plyometrik"],"variants":"Land på forfoden!","link":"","catalog":"fys"},{"id":"uhu40pjncf","name":"Hop fra knælende position","description":"Sid på knæ, rejs jer op uden arme, og lav alm hop (10)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"cmujkp8avz","name":"Saksehop","description":"saksehop (non consec) (20)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"xbig7wk2r5","name":"Boxjump","description":"Stå ved boks/bænk: Hop op og ned (consec) (10)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"do9tdqkbf4","name":"Boxjump bounce","description":"Stå på boks/bænk: Hop ned og så op (consec) (10)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"v84gndxv5m","name":"Hop i firkant med samlede ben","description":"Mors thy firkant (consec), men på samlede ben (20)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"5r66lrftu8","name":"Hop i firkant på et ben","description":"Mors thy firkant med på eet ben consec (10 x 2)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"yb1nvdybg6","name":"Skaterhops til siden","description":"Sidehop på et ben, land på yderste ben (non consec) (20)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"https://www.instagram.com/p/DK_aq74Mdmn/","catalog":"fys"},{"id":"40d39sf2cf","name":"Hop i firkant med sidestep","description":"Mors thy, men hvor der skiftes fod, så der landes på det yderste - den rigtige (20)","stars":0,"tags":["opvarmning","plyometrik"],"variants":"","link":"https://www.instagram.com/p/DK_aq74Mdmn/","catalog":"fys"},{"id":"5mlj8ae9gt","name":"Pump anklen frem og tilbage","description":"Kiel: hop på samme fod consecutive sidelæns over en streg (husk begge fødder )","stars":5,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"rq6g2camse","name":"Pump anklen sidevejs","description":"Kiel: hop på samme fod consecutive frem og tilbage over en streg (husk begge fødder )","stars":5,"tags":["opvarmning","plyometrik"],"variants":"","link":"","catalog":"fys"},{"id":"5hyxx0vhmx","name":"Lang hop, backpedal tilabge","description":"Så langt et hop på samlet som muligt, backpedal tilbage (10)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"ow1nbokp4x","name":"Boxjump bounce fremad","description":"Stå på boks, hop ned, og langt hop frem (10)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"Land på forfoden!","link":"","catalog":"fys"},{"id":"qifgo0du18","name":"3 hop på samlede, kontrolleret","description":"3 lange hop på samlede (non consec) (10)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"lk6z6gfvaz","name":"3 hop på samlede, bounce","description":"3 lange hop på samlede (consec)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"Land på forfoden! Evt efter nedhop fra boks","link":"","catalog":"fys"},{"id":"y8qyfm66z3","name":"3 hop på samlede, bounce + eksplosion","description":"3 lange hop på samlede ben, efter fulgt af kort sprint","stars":0,"tags":["plyometrik","eksplosion"],"variants":"Land på forfoden! Evt efter nedhop fra boks","link":"","catalog":"fys"},{"id":"1iml2wycme","name":"3 lange og høje hop","description":"langt hop, højt hop x 3 (consec)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"6f631s6mx6","name":"Lange hink","description":"10 lange hop på et ben. (consec) (10 x 2)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"https://www.instagram.com/p/DMEyzmLJTA5/","catalog":"fys"},{"id":"bhz1612uy8","name":"Sidehop med sprint","description":"Langt hop på et ben, land kontrolleret på et ben (10 x 2)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"t9wbk2zwrj","name":"Eksplosive sidehops","description":"Sidehop på et ben, land på yderste ben - lille mellemhop og så hurtigt retur ( consec) (20)","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"7lstm9uhbx","name":"Skaterhops fremad","description":"Skaterhops (non consecutive)- højde på, med kontrolleret landing","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"bg3xw2bmw5","name":"Sidehop, hop med sprint","description":"Langt sidestep, hurtigt hop frem, land på samlet, kort sprint frem - se klip","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"n88pypsfl3","name":"Sidesteps med sprint","description":"3 sidestep hop på samme fod over hække, kort sprint fremad","stars":0,"tags":["plyometrik","eksplosion"],"variants":"","link":"https://www.instagram.com/reel/DMjA5JuM02b/?igsh=Z2p0bmoxZnZwd3Fv","catalog":"fys"},{"id":"0yot46nzlb","name":"Sprint fra knælende","description":"Siddende på et knæ > 5-10 m sprint x 10","stars":0,"tags":["plyometrik","eksplosion"],"variants":"siddende på knæ kan både være mde front eller med siden til","link":"https://www.instagram.com/reel/DMjA5JuM02b/?igsh=Z2p0bmoxZnZwd3Fv","catalog":"fys"},{"id":"1p3t6lraan","name":"Hink: Små hink","description":"Hink med lille mellemhop i hvert felt a la 1-2 (husk begge ben)","stars":5,"tags":["plyometrik","hurtighed"],"variants":"Brug felter i valbyhallen eller stiger","link":"","catalog":"fys"},{"id":"odwybfevc4","name":"Hink: Frem og tilbage","description":"Hink hvor der hoppes to felter frem, og et tilbage (consec - husk begge ben)","stars":5,"tags":["plyometrik","hurtighed"],"variants":"Brug felter i valbyhallen eller stiger","link":"","catalog":"fys"},{"id":"4kqoxrgfsf","name":"Hink: Ind og ud","description":"Hink hvor der hoppes på hver side af felterne, med samme ben - dvs felterne hoppes over. consec (husk begge ben)","stars":5,"tags":["plyometrik","hurtighed"],"variants":"Brug felter i valbyhallen eller stiger","link":"","catalog":"fys"},{"id":"hdwh81k1tl","name":"Hink: Lange hink","description":"Hink hvor der med tilløb hoppes over to felter, dvs kun landes i hvert tredje. consec. (husk begge ben)","stars":5,"tags":["plyometrik","hurtighed"],"variants":"Brug felter i valbyhallen eller stiger","link":"","catalog":"fys"},{"id":"rj9y724t9c","name":"Bane: 3 skridtsforberedelse - samlede ben","description":"3 samlede hop, sidestep til yderste, 3 samlede, sidestep osv (consec)","stars":0,"tags":["plyometrik","finter"],"variants":"","link":"https://www.instagram.com/p/DK_aq74Mdmn/","catalog":"fys"},{"id":"nfgbeky6ih","name":"5 bouncehop på samlet","description":"5 consec lange hop på samlet - gerne lidt forskudt om en akse, så man hhv skal hoppe til venstre eller højre om en keglerække","stars":0,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"egx3t3cplc","name":"Bane: Skaterhops med hække","description":"Sidestep til yderste, hop op på yderste (evt over lille hæk), sidestep til yderste, hop op. AKA skaterhops med mellem hop","stars":0,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"Hurtigt og langt sidestep. Ok at lige finde balancen inden ophop","link":"https://www.instagram.com/reel/DOzHcYcEk7z/?igsh=MnFyaTN4Y2xndjdy","catalog":"fys"},{"id":"kb6qwyzz31","name":"Hink med sidestep","description":"6 hink på samme ben, med eksplosivt sidestep til yderste - et skridt frem og hop så højt i kan!","stars":0,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"ovulgpfoh6","name":"Bane: 3 skridtsforberedelse - hink","description":"3 hink på samme ben, sidestep til yderste, 3 hink, sidestep til yderste (consec). Lidt a la mors thy","stars":0,"tags":["plyometrik","finter"],"variants":"","link":"","catalog":"fys"},{"id":"g446tw1ea2","name":"Bane: 3 skridtsforberedelse -eksplosive hink","description":"3 hink på samme ben, 1 hink på modsatte (eksplosivt), 1 hink på første (eksplosivt)","stars":0,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"","link":"https://www.instagram.com/p/DKoRAn6tA7W/","catalog":"fys"},{"id":"y7bcw7qdc1","name":"Hop fra siddende med sideafsæt og sprint","description":"Sid på bænk, 3 consec hop på samlet til markør, eksplosivt sideafsæt på een fod - efterfulgt af kort sprint (gør det på begge fødder)","stars":5,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"","link":"","catalog":"fys"},{"id":"80cp9u32mo","name":"Hop over hæk med sideafsæt og sprint","description":"Hop over hæk med samlet, land på samlet, hurtigt sidestep - repeat (nonconsec) - afslut med kort sprint - se klip 1","stars":0,"tags":["plyometrik","hurtighed","eksplosion"],"variants":"","link":"https://www.instagram.com/reel/DMjA5JuM02b/?igsh=Z2p0bmoxZnZwd3Fv","catalog":"fys"},{"id":"etrbo03qxl","name":"Nedhop med 3 skridt","description":"Nedhop på samlet, treskriftsfinte","stars":0,"tags":["plyometrik","finter"],"variants":"","link":"","catalog":"fys"},{"id":"o7gbsrtyzq","name":"Nedhop med finte modsat skudarm","description":"Nedhop på samlet, Fintebevægelse overslag / 1 div finte","stars":0,"tags":["plyometrik","finter"],"variants":"","link":"","catalog":"fys"},{"id":"c19l9t6vqj","name":"Nedhop med omvendt 3 skridt","description":"Nedhop på samlet, treskriftsfinte til forkert side","stars":0,"tags":["plyometrik","finter"],"variants":"","link":"","catalog":"fys"},{"id":"w1ubiex2fe","name":"Armbøjninger","description":"Armstrækkere","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"9divgq4zc4","name":"Rygbøjninger","description":"Rygbøjninger","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"a38jj92f4u","name":"Reaktionsøvelse","description":"Reaktionsøvelse","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"7k8f3zhb2k","name":"Mavebøjninger","description":"Mavebøjninger","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"d7s2le4aq3","name":"Lunges","description":"Lunges","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"bfspnwjhj8","name":"Planken","description":"Planken. Evt med makker som hopper over fra side til side","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"},{"id":"sz9vb1qk5p","name":"Frøen","description":"Længdehop på alle fire - som en frø","stars":1,"tags":["styrke","plyometrik","eksplosion"],"variants":"den er svær. med god.","link":"https://www.instagram.com/reel/DKh5OWetYFF/?igsh=czZibzFvbGhzYnpz","catalog":"fys"},{"id":"leijx9rl68","name":"Avancerede mavebøjninger","description":"To og to maveøvelse. Makker ligger med hovedet mellem fødderne på stående. Skal nu sparke op til hænderne på stående","stars":0,"tags":["styrke"],"variants":"","link":"https://www.instagram.com/reel/DJ9PkajNFJU/?igsh=ZWNmZG9zd2doejE0","catalog":"fys"},{"id":"ch0njll5k7","name":"Trillebør","description":"To og to: trillebøren","stars":0,"tags":["styrke"],"variants":"","link":"","catalog":"fys"}];
+
+// ─── GOOGLE SHEETS JWT AUTH ────────────────────────────────────────────────────
+// Minimal JWT/OAuth2 implementation for Sheets API using Web Crypto
+async function getAccessToken() {
+  const cfg = GSHEETS_CONFIG;
+  if (!cfg.clientEmail || cfg.clientEmail.startsWith('__')) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim  = {
+    iss: cfg.clientEmail,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const b64u = s => btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const unsigned = `${b64u(header)}.${b64u(claim)}`;
+
+  // Import private key
+  const pem = cfg.privateKey.replace(/-----BEGIN RSA PRIVATE KEY-----|-----END RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g,'');
+  const derBuf = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', derBuf.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false, ['sign']
+  );
+
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const jwt = `${unsigned}.${sigB64}`;
+
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const data = await resp.json();
+  return data.access_token || null;
+}
+
+// ─── SHEETS API ───────────────────────────────────────────────────────────────
+const SHEET_ID  = GSHEETS_CONFIG.spreadsheetId;
+const SHEETS    = { trainings:'Træninger', quarters:'Årshjul', hal:'Haltræning', fys:'FysiskTræning' };
+let _token = null;
+let _tokenExp = 0;
+
+async function token() {
+  if (_token && Date.now() < _tokenExp) return _token;
+  _token = await getAccessToken();
+  _tokenExp = Date.now() + 3500000;
+  return _token;
+}
+
+async function sheetsGet(range) {
+  const t = await token(); if (!t) return null;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
+  if (!r.ok) return null;
+  const d = await r.json();
+  return d.values || [];
+}
+
+async function sheetsUpdate(range, values) {
+  const t = await token(); if (!t) return false;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ range, majorDimension: 'ROWS', values })
+  });
+  return r.ok;
+}
+
+async function sheetsClear(range) {
+  const t = await token(); if (!t) return false;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`;
+  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${t}` } });
+  return r.ok;
+}
+
+// Ensure all required sheets exist
+async function ensureSheets() {
+  const t = await token(); if (!t) return;
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`, {
+    headers: { Authorization: `Bearer ${t}` }
+  });
+  if (!r.ok) return;
+  const meta = await r.json();
+  const existing = (meta.sheets || []).map(s => s.properties.title);
+  const needed = Object.values(SHEETS).filter(s => !existing.includes(s));
+  if (!needed.length) return;
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: needed.map(title => ({ addSheet: { properties: { title } } })) })
+  });
+}
+
+// ─── DATA SERIALIZATION ───────────────────────────────────────────────────────
+// Trainings: each row = JSON string of one training object
+async function loadTrainings() {
+  const rows = await sheetsGet(`${SHEETS.trainings}!A:A`);
+  if (!rows) return null;
+  return rows.map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
+}
+async function saveTrainings(trainings) {
+  await sheetsClear(`${SHEETS.trainings}!A:A`);
+  if (!trainings.length) return true;
+  return sheetsUpdate(`${SHEETS.trainings}!A1`, trainings.map(t => [JSON.stringify(t)]));
+}
+
+// Quarters: each row = JSON string of one quarter
+async function loadQuarters() {
+  const rows = await sheetsGet(`${SHEETS.quarters}!A:A`);
+  if (!rows || !rows.length) return null;
+  return rows.map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
+}
+async function saveQuarters(quarters) {
+  await sheetsClear(`${SHEETS.quarters}!A:A`);
+  return sheetsUpdate(`${SHEETS.quarters}!A1`, quarters.map(q => [JSON.stringify(q)]));
+}
+
+// Catalogs: rows = name, description, stars, tags(;), variants, link, catalog, category
+function catalogToRows(exercises) {
+  return [
+    ['navn','beskrivelse','stjerner','tags','varianter','link','katalog','kategori','id'],
+    ...exercises.map(e => [
+      e.name||'', e.description||'', e.stars||'',
+      (e.tags||[]).join(';'), e.variants||'', e.link||'',
+      e.catalog||'hal', e.category||'', e.id||uid()
+    ])
+  ];
+}
+function rowsToCatalog(rows, catalog) {
+  if (!rows || rows.length < 2) return null;
+  return rows.slice(1).map(r => ({
+    id: r[8] || uid(), name: r[0]||'', description: r[1]||'',
+    stars: parseInt(r[2])||0, tags: r[3]?(r[3].split(';').map(x=>x.trim()).filter(Boolean)):[],
+    variants: r[4]||'', link: r[5]||'', catalog: r[6]||catalog, category: r[7]||'',
+  })).filter(e => e.name);
+}
+async function loadCatalog(sheet) {
+  const rows = await sheetsGet(`${sheet}!A:I`);
+  return rowsToCatalog(rows, sheet === SHEETS.hal ? 'hal' : 'fys');
+}
+async function saveCatalog(sheet, exercises) {
+  await sheetsClear(`${sheet}!A:I`);
+  const rows = catalogToRows(exercises);
+  return sheetsUpdate(`${sheet}!A1`, rows);
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const S = {
+  tab: 'traening',
+  syncStatus: 'loading', // loading | ok | syncing | err
+  quarters:   QUARTERS.map(q=>({...q,themes:['','']})),
+  trainings:  [],
+  halCatalog: INIT_HAL,
+  fysCatalog: INIT_PLYO,
+  templates:  lsLoad('templates', []),
+  draft: null, modal: null,
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0},
+  archFilter: {stars:0, trainer:'', loc:''},
+};
+
+function lsLoad(k, def) { try { const v = localStorage.getItem('ajaxu11_'+k); return v ? JSON.parse(v) : def; } catch { return def; } }
+function lsSave(k, v)   { try { localStorage.setItem('ajaxu11_'+k, JSON.stringify(v)); } catch {} }
+
+// ─── SYNC ─────────────────────────────────────────────────────────────────────
+let saveTimer = null;
+function scheduleSave(type) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => pushToSheets(type), 1500);
+}
+
+async function pushToSheets(type) {
+  S.syncStatus = 'syncing'; updateSyncUI();
+  try {
+    if (type === 'trainings' || type === 'all') await saveTrainings(S.trainings);
+    if (type === 'quarters'  || type === 'all') await saveQuarters(S.quarters);
+    if (type === 'hal'       || type === 'all') await saveCatalog(SHEETS.hal, S.halCatalog);
+    if (type === 'fys'       || type === 'all') await saveCatalog(SHEETS.fys, S.fysCatalog);
+    S.syncStatus = 'ok'; updateSyncUI();
+  } catch(e) {
+    S.syncStatus = 'err'; updateSyncUI();
+    toast('Synkronisering fejlede', 'err');
+  }
+}
+
+async function loadFromSheets() {
+  S.syncStatus = 'loading'; render();
+  try {
+    await ensureSheets();
+    const [trainings, quarters, hal, fys] = await Promise.all([
+      loadTrainings(), loadQuarters(),
+      loadCatalog(SHEETS.hal), loadCatalog(SHEETS.fys)
+    ]);
+    if (trainings !== null) S.trainings  = trainings;
+    if (quarters  !== null) S.quarters   = quarters;
+    if (hal       !== null) S.halCatalog = hal;
+    if (fys       !== null) S.fysCatalog = fys;
+    S.syncStatus = 'ok';
+  } catch(e) {
+    S.syncStatus = 'err';
+    toast('Kunne ikke forbinde til Google Sheets', 'err');
+  }
+  render();
+}
+
+function updateSyncUI() {
+  const dot  = document.getElementById('syncDot');
+  const lbl  = document.getElementById('syncLbl');
+  if (!dot || !lbl) return;
+  const map = { ok:['ok','Synkroniseret'], syncing:['syncing','Gemmer…'], err:['err','Fejl'], loading:['syncing','Indlæser…'] };
+  const [cls, txt] = map[S.syncStatus] || ['',''];
+  dot.className = `sync-dot ${cls}`;
+  lbl.textContent = txt;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  document.getElementById('app').innerHTML = html_app();
+  bind();
+  updateSyncUI();
+}
+
+function html_app() {
+  if (S.syncStatus === 'loading') {
+    return `<div class="loading-screen" style="height:100vh;">
+      <div class="spinner"></div>
+      <p style="color:var(--text2);font-size:14px;">Forbinder til Google Sheets…</p>
+    </div>`;
+  }
+  return html_topbar()
+    + `<div class="content">`
+    + (S.tab==='traening' ? html_traening_tab() : '')
+    + (S.tab==='aarshjul' ? html_aarshjul_tab() : '')
+    + (S.tab==='katalog'  ? html_katalog_tab()  : '')
+    + (S.tab==='arkiv'    ? html_arkiv_tab()     : '')
+    + `</div>`
+    + (S.modal ? html_modal() : '');
+}
+
+function html_topbar() {
+  const tabs = [{id:'traening',l:'Træning'},{id:'aarshjul',l:'Årshjul'},{id:'katalog',l:'Katalog'},{id:'arkiv',l:'Arkiv'}];
+  return `<div class="topbar">
+    <div class="topbar-logo">
+      <svg width="34" height="34" viewBox="0 0 60 60"><circle cx="30" cy="30" r="29" fill="#C8102E" stroke="#fff" stroke-width="1.5"/><text x="30" y="42" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="900" font-size="26" fill="white" letter-spacing="1">A</text></svg>
+      <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
+    </div>
+    <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
+    <div class="sync-indicator">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLbl"></span>
+    </div>
+  </div>`;
+}
+
+// ─── ÅRSHJUL ──────────────────────────────────────────────────────────────────
+function html_aarshjul_tab() {
+  return `<div style="max-width:860px;margin:0 auto;">
+    <div class="flex-between" style="margin-bottom:20px;">
+      <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ÅRSHJUL</h1>
+      <p style="color:var(--text2);font-size:12px;margin-top:2px;">Sæson 2025/26 · 1. maj – 30. april</p></div>
+    </div>
+    <div class="grid-2">${S.quarters.map((q,qi)=>`
+      <div class="q-card">
+        <div class="q-head" style="background:${q.color}18;border-bottom:2px solid ${q.color}20;">
+          <span class="q-num" style="color:${q.color};">${q.label}</span>
+          <div><div style="font-size:14px;font-weight:600;">${q.months}</div><div style="font-size:11px;color:var(--text2);">${q.season}</div></div>
+          <button class="btn btn-ghost btn-xs" style="margin-left:auto;" data-qadd="${qi}">+ Tema</button>
+        </div>
+        <div class="q-body">
+          ${(q.themes||[]).map((t,ti)=>`
+            <div class="theme-row">
+              <span style="color:${q.color};font-size:14px;flex-shrink:0;">◆</span>
+              <input class="theme-inp" value="${esc(t)}" placeholder="Tema…" data-qt="${qi}-${ti}">
+              <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;flex-shrink:0;" data-qdel="${qi}-${ti}">✕</button>
+            </div>`).join('')}
+          ${!(q.themes||[]).length?`<p style="color:var(--text3);font-size:12px;text-align:center;padding:10px;">Ingen temaer</p>`:''}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ─── TRÆNING LIST ─────────────────────────────────────────────────────────────
+function html_traening_tab() {
+  if (S.draft) return html_editor();
+  const upcoming = S.trainings.filter(t=>!t.archived).sort((a,b)=>a.date>b.date?1:-1);
+  return `<div style="max-width:960px;margin:0 auto;">
+    <div class="flex-between" style="margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">TRÆNINGER</h1>
+      <p style="color:var(--text2);font-size:12px;margin-top:2px;">${upcoming.length} kommende</p></div>
+      <div class="flex-row">
+        <button class="btn btn-secondary" id="fromTmplBtn">Fra skabelon</button>
+        <button class="btn btn-primary" id="newTBtn">+ Ny træning</button>
+      </div>
+    </div>
+    ${upcoming.length===0?`<div class="empty"><div class="empty-icon">📋</div><p>Ingen kommende træninger</p></div>`
+      :upcoming.map(t=>html_tcard(t)).join('')}
+  </div>`;
+}
+
+function html_tcard(t) {
+  const dur=durMin(t.startTime,t.endTime), tot=totalMins(t);
+  const pct=dur>0?Math.min(100,Math.round(tot/dur*100)):0;
+  const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
+  return `<div class="list-item" data-open="${t.id}">
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="background:var(--bg4);border-radius:5px;padding:7px 10px;text-align:center;flex-shrink:0;min-width:48px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;line-height:1;">${fmtDay(t.date)}</div>
+        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;">${fmtMon(t.date)}</div>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="list-title">${esc(t.title||'Træning')}</div>
+        <div class="list-meta" style="margin-bottom:5px;">
+          <span>${t.startTime||'–'} – ${t.endTime||'–'} <span style="background:var(--bg4);padding:1px 6px;border-radius:3px;font-size:11px;">${dur} min</span></span>
+          ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">📍 ${t.location}</span>`:''}
+          ${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;">${tr}</span>`).join('')}
+        </div>
+        ${t.focusPoints?`<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">🎯 ${esc(t.focusPoints)}</div>`:''}
+        <div class="flex-between">
+          <span class="${mc}" style="font-size:12px;">${tot}/${dur} min</span>
+          ${t.stars?`<span class="stars-sm">${'★'.repeat(t.stars)}${'☆'.repeat(5-t.stars)}</span>`:''}
+        </div>
+        <div class="prog-bar" style="margin-top:4px;"><div class="prog-fill" style="width:${pct}%;background:${tot>dur?'var(--red)':'var(--accent)'};"></div></div>
+      </div>
+      <div class="flex-row" style="flex-shrink:0;">
+        <button class="btn btn-secondary btn-sm" data-edit="${t.id}">Rediger</button>
+        <button class="btn btn-ghost btn-sm" data-arch="${t.id}">Arkivér</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── EDITOR ───────────────────────────────────────────────────────────────────
+function html_editor() {
+  const t=S.draft, dur=durMin(t.startTime,t.endTime), tot=totalMins(t);
+  const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
+  const themes=S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  return `<div style="max-width:980px;margin:0 auto;">
+    <div class="flex-row" style="margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost" id="cancelBtn">← Tilbage</button>
+      <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
+      <div class="flex-row" style="margin-left:auto;">
+        <button class="btn btn-secondary" id="saveTmplBtn">💾 Skabelon</button>
+        <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="card"><div class="card-header"><span class="card-title">Oplysninger</span></div><div class="card-body">
+        <div class="form-group"><label>Titel</label><input id="e-title" value="${esc(t.title||'')}" placeholder="fx Tirsdag – forsvar"></div>
+        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
+          <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
+          <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?`<span style="color:var(--red);"> ⚠ ${tot-dur} min over!</span>`:''}</div>
+        <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
+        <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
+        <div class="form-group"><label>Tema</label><select id="e-theme"><option value="">– Vælg tema –</option>${themes.map(th=>`<option value="${esc(th)}" ${t.theme===th?'selected':''}>${esc(th)}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
+      </div></div>
+      <div class="card"><div class="card-header"><span class="card-title">Trænere til stede</span></div><div class="card-body">
+        <div class="pill-group">${TRAINERS.map(tr=>`<button class="pill${(t.trainers||[]).includes(tr)?' active':''}" data-tr="${tr}">${tr}</button>`).join('')}</div>
+        <p style="font-size:11px;color:var(--text2);margin-top:8px;">Valgt: ${(t.trainers||[]).join(', ')||'Ingen'}</p>
+        <hr class="divider">
+        <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="5" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
+      </div></div>
+    </div>
+    <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><button class="btn btn-secondary btn-sm" id="addSecBtn">+ Tilføj sektion</button></div>
+      <div class="card-body" id="secs-wrap">
+        ${(t.sections||[]).map((s,si)=>html_sec(s,si)).join('')}
+        ${!(t.sections||[]).length?`<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik "+ Tilføj sektion"</p></div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function html_sec(sec,si) {
+  const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
+  const tot=(sec.exercises||[]).reduce((m,e)=>m+(parseInt(e.mins)||0),0);
+  return `<div class="sec-block ${def.cls}" data-si="${si}">
+    <div class="sec-block-head">
+      <span class="sec-label" style="color:${def.color};">${def.label}</span>
+      ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
+      <span class="sec-mins" id="sm-${si}">${tot} min</span>
+      <button class="btn btn-ghost btn-xs" data-par="${si}">${sec.parallel?'Fjern parallel':'Parallel'}</button>
+      <button class="btn btn-secondary btn-xs" data-addex="${si}">+ Øvelse</button>
+      <button class="btn btn-danger btn-xs" data-delsec="${si}">✕</button>
+    </div>
+    <div class="sec-block-body">
+      ${(sec.exercises||[]).map((ex,ei)=>html_exrow(ex,si,ei)).join('')}
+      ${!(sec.exercises||[]).length?`<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>`:''}
+    </div>
+  </div>`;
+}
+
+function html_exrow(ex,si,ei) {
+  const all=S.halCatalog.concat(S.fysCatalog);
+  const def=all.find(c=>c.id===ex.exerciseId);
+  const name=def?def.name:(ex.customName||'Fri øvelse');
+  const tags=def?(def.tags||[]):[];
+  return `<div class="ex-row">
+    <div class="ex-row-name">
+      <div style="font-weight:500;line-height:1.3;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;" data-exdetail="${ex.exerciseId||''}">${esc(name)}</div>
+      ${tags.length?`<div class="tags-wrap" style="margin-top:3px;">${tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join('')}</div>`:''}
+    </div>
+    <input type="number" class="mins-inp" min="1" max="120" value="${ex.mins||''}" placeholder="min" data-mkey="${si}-${ei}">
+    <button class="btn btn-danger btn-xs" data-delex="${si}-${ei}">✕</button>
+  </div>`;
+}
+
+// ─── KATALOG ──────────────────────────────────────────────────────────────────
+function html_katalog_tab() {
+  const cat=S.catTab==='hal'?S.halCatalog:S.fysCatalog;
+  const q=S.catSearch.toLowerCase(), tf=S.catFilter.tags, sf=S.catFilter.stars;
+  const filtered=cat.filter(ex=>{
+    if(q&&!ex.name.toLowerCase().includes(q)&&!(ex.variants||'').toLowerCase().includes(q)) return false;
+    if(tf.length&&!tf.every(t=>(ex.tags||[]).includes(t))) return false;
+    if(sf&&(ex.stars||0)<sf) return false;
+    return true;
+  });
+  const allTags=[...new Set(cat.flatMap(e=>e.tags||[]))].sort();
+  return `<div style="max-width:1060px;margin:0 auto;">
+    <div class="flex-between" style="margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+      <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ØVELSESKATALOG</h1>
+      <div class="flex-row">
+        <button class="btn btn-secondary" id="importBtn">📥 Importer CSV/Excel</button>
+        <button class="btn btn-primary" id="newExBtn">+ Ny øvelse</button>
+      </div>
+    </div>
+    <div class="subtabs">
+      <button class="subtab${S.catTab==='hal'?' active':''}" data-ctab="hal">Haltræning <span style="color:var(--text3);font-size:11px;">(${S.halCatalog.length})</span></button>
+      <button class="subtab${S.catTab==='fys'?' active':''}" data-ctab="fys">Fysisk træning <span style="color:var(--text3);font-size:11px;">(${S.fysCatalog.length})</span></button>
+    </div>
+    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div class="search-wrap" style="flex:1;min-width:180px;"><span class="search-ico">🔍</span><input id="catQ" value="${esc(S.catSearch)}" placeholder="Søg øvelse…"></div>
+      <select id="catStar" style="width:130px;"><option value="0">Alle stjerner</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${sf===n?'selected':''}>${'★'.repeat(n)}+</option>`).join('')}</select>
+    </div>
+    ${allTags.length?`<div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Tags</div><div class="pill-group">${allTags.map(t=>`<button class="pill btn-sm${tf.includes(t)?' active':''}" data-ctag="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`:''}
+    <div class="card">
+      <div class="cat-row cat-hdr"><div>Navn</div><div>Beskrivelse</div><div>Stjerner</div><div>Tags</div><div>Link</div><div></div></div>
+      ${filtered.length===0?`<div class="empty"><div class="empty-icon">🏋️</div><p>${cat.length===0?'Importer øvelser fra Excel/CSV':'Ingen resultater'}</p></div>`
+        :filtered.slice(0,120).map(ex=>`
+        <div class="cat-row" data-editex="${ex.id}">
+          <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
+          <div style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
+          <div class="stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
+          <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
+          <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
+          <div><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
+        </div>`).join('')}
+      ${filtered.length>120?`<div style="padding:10px;text-align:center;color:var(--text2);font-size:12px;">Viser 120 af ${filtered.length} – søg for at filtrere</div>`:''}
+    </div>
+  </div>`;
+}
+
+// ─── ARKIV ────────────────────────────────────────────────────────────────────
+function html_arkiv_tab() {
+  const arch=S.trainings.filter(t=>t.archived);
+  const {stars:sf,trainer:tf,loc:lf}=S.archFilter;
+  const filtered=arch.filter(t=>{
+    if(sf&&(t.stars||0)<sf) return false;
+    if(tf&&!(t.trainers||[]).includes(tf)) return false;
+    if(lf&&t.location!==lf) return false;
+    return true;
+  }).sort((a,b)=>b.date>a.date?1:-1);
+  return `<div style="max-width:960px;margin:0 auto;">
+    <div class="flex-between" style="margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+      <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ARKIV</h1>
+      <p style="color:var(--text2);font-size:12px;">${arch.length} afholdte træninger</p></div>
+    </div>
+    <div class="flex-row" style="margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <select id="archStar" style="width:140px;"><option value="0">Alle vurderinger</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${sf===n?'selected':''}>${'★'.repeat(n)}+</option>`).join('')}</select>
+      <select id="archLoc"  style="width:130px;"><option value="">Alle steder</option>${LOCATIONS.map(l=>`<option value="${l}" ${lf===l?'selected':''}>${l}</option>`).join('')}</select>
+      <select id="archTr"   style="width:140px;"><option value="">Alle trænere</option>${TRAINERS.map(tr=>`<option value="${tr}" ${tf===tr?'selected':''}>${tr}</option>`).join('')}</select>
+    </div>
+    ${filtered.length===0?`<div class="empty"><div class="empty-icon">📁</div><p>Ingen arkiverede træninger</p></div>`
+      :`<table class="arch-tbl"><thead><tr><th>Dato</th><th>Titel</th><th>Sted</th><th>Varighed</th><th>Trænere</th><th>Vurdering</th><th></th></tr></thead><tbody>
+      ${filtered.map(t=>`<tr>
+        <td style="color:var(--text2);white-space:nowrap;">${t.date||'–'}</td>
+        <td><div style="font-weight:500;">${esc(t.title||'Træning')}</div>${t.focusPoints?`<div style="font-size:11px;color:var(--text2);">🎯 ${esc(t.focusPoints)}</div>`:''}</td>
+        <td>${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}</td>
+        <td><span style="background:var(--bg4);padding:2px 6px;border-radius:3px;font-size:11px;">${durMin(t.startTime,t.endTime)} min</span></td>
+        <td style="white-space:nowrap;">${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 5px;border-radius:3px;font-size:11px;">${tr}</span>`).join(' ')}</td>
+        <td class="stars-sm">${t.stars?'★'.repeat(t.stars)+'☆'.repeat(5-t.stars):'–'}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-secondary btn-xs" data-clone="${t.id}">Kopi</button>
+          <button class="btn btn-ghost btn-xs" data-restore="${t.id}">Genskab</button>
+          <button class="btn btn-danger btn-xs" data-deltrain="${t.id}">✕</button>
+        </td>
+      </tr>`).join('')}</tbody></table>`}
+  </div>`;
+}
+
+// ─── MODALS ───────────────────────────────────────────────────────────────────
+function html_modal() {
+  const m=S.modal;
+  if(m.type==='addSec')   return mwrap(mhead('Tilføj sektion')+`<div class="modal-body"><div class="grid-2">${SECTIONS.map(s=>`<button class="list-item" style="border-left:3px solid ${s.color};" data-picksec="${s.id}"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${s.color};">${s.label}</div></button>`).join('')}</div></div>`);
+  if(m.type==='pickEx')   return html_m_pickex();
+  if(m.type==='editEx'||m.type==='newEx') return html_m_editex(m.type==='editEx'?m.ex:null);
+  if(m.type==='import')   return html_m_import();
+  if(m.type==='exDetail') return html_m_exdetail(m.ex);
+  if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
+  if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
+  return '';
+}
+function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}">${inner}</div></div>`;}
+function mhead(title){return `<div class="modal-header"><span class="modal-title">${title}</span><button class="btn btn-ghost btn-sm" id="mclose">✕</button></div>`;}
+
+function html_m_pickex() {
+  const si=S.modal.si, q=(S.modal.q||'').toLowerCase();
+  const all=S.halCatalog.concat(S.fysCatalog);
+  const f=all.filter(ex=>!q||ex.name.toLowerCase().includes(q)||(ex.tags||[]).some(t=>t.toLowerCase().includes(q))||(ex.category||'').toLowerCase().includes(q));
+  return mwrap(mhead('Vælg øvelse')+`<div class="modal-body">
+    <div class="search-wrap" style="margin-bottom:12px;"><span class="search-ico">🔍</span><input id="exPickQ" value="${esc(S.modal.q||'')}" placeholder="Søg øvelse, tag, kategori…" autofocus></div>
+    <div style="max-height:420px;overflow-y:auto;">
+      ${f.length===0?`<div class="empty" style="padding:20px;"><p>${all.length===0?'Ingen øvelser – importer katalog':'Ingen resultater'}</p></div>`
+        :f.slice(0,60).map(ex=>`<div class="list-item" style="margin-bottom:5px;" data-pickex="${ex.id}" data-si="${si}">
+          <div class="list-title">${esc(ex.name)}</div>
+          <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${ex.category?`<span style="font-size:10px;color:var(--text3);">${esc(ex.category)}</span>`:''}</div>
+        </div>`).join('')}
+      ${f.length>60?`<div style="text-align:center;color:var(--text3);font-size:12px;padding:8px;">Viser 60 af ${f.length} – søg for at filtrere</div>`:''}
+    </div>
+    <hr class="divider"><button class="btn btn-ghost btn-sm" data-custex="${si}">+ Tilføj fri øvelse</button>
+  </div>`,'modal-lg');
+}
+
+function html_m_editex(ex) {
+  return mwrap(mhead(ex?'Rediger øvelse':'Ny øvelse')+`<div class="modal-body">
+    <div class="form-group"><label>Navn</label><input id="ex-n" value="${esc(ex?ex.name:'')}" placeholder="Øvelsesnavn"></div>
+    <div class="form-group"><label>Beskrivelse</label><textarea id="ex-d" rows="2">${esc(ex?ex.description||'':'')}</textarea></div>
+    <div class="grid-2">
+      <div class="form-group"><label>Vurdering</label><div class="stars" id="ex-stars">${[1,2,3,4,5].map(n=>`<span class="star${ex&&(ex.stars||0)>=n?' filled':''}" data-exs="${n}">★</span>`).join('')}</div></div>
+      <div class="form-group"><label>Katalog</label><select id="ex-cat"><option value="hal" ${!ex||ex.catalog==='hal'?'selected':''}>Haltræning</option><option value="fys" ${ex&&ex.catalog==='fys'?'selected':''}>Fysisk træning</option></select></div>
+    </div>
+    <div class="form-group"><label>Tags (kommasepareret)</label><input id="ex-t" value="${esc(ex?(ex.tags||[]).join(', '):'')}" placeholder="aflevering, teknik…"></div>
+    <div class="form-group"><label>Varianter / noter</label><textarea id="ex-v" rows="2">${esc(ex?ex.variants||'':'')}</textarea></div>
+    <div class="form-group"><label>Link</label><input type="url" id="ex-l" value="${esc(ex?ex.link||'':'')}"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" data-saveex="${ex?ex.id:'new'}">Gem</button></div>`,'modal-sm');
+}
+
+function html_m_exdetail(ex) {
+  if(!ex) return '';
+  return mwrap(mhead(esc(ex.name))+`<div class="modal-body">
+    ${ex.description?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Beskrivelse</div><div style="font-size:14px;line-height:1.6;color:var(--text);">${esc(ex.description)}</div></div>`:''}
+    ${ex.variants?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Varianter & bemærkninger</div><div style="font-size:13px;line-height:1.6;color:var(--text);background:var(--bg3);padding:10px 12px;border-radius:5px;border-left:3px solid var(--accent);">${esc(ex.variants)}</div></div>`:''}
+    ${(ex.tags||[]).length?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Tags</div><div class="tags-wrap">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div>`:''}
+    ${ex.stars?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Vurdering</div><span class="stars-sm" style="font-size:16px;">${'★'.repeat(ex.stars)}${'☆'.repeat(5-ex.stars)}</span></div>`:''}
+    ${ex.link?`<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Kilde</div><a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);">${esc(ex.link.replace(/^https?:\/\//, '').substring(0,50))}${ex.link.length>53?'…':''} ↗</a></div>`:''}
+    ${!ex.description&&!ex.variants&&!ex.link?`<p style="color:var(--text3);font-size:13px;">Ingen yderligere oplysninger for denne øvelse.</p>`:''}
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Luk</button></div>`,'modal-sm');
+}
+
+function html_m_import() {
+  return mwrap(mhead('Importer øvelseskatalog')+`<div class="modal-body">
+    <div class="form-group"><label>Katalog</label><select id="imp-cat"><option value="hal">Haltræning</option><option value="fys">Fysisk træning</option></select></div>
+    <div class="drop-zone" id="dropZ"><div style="font-size:28px;margin-bottom:8px;">📄</div><div style="font-weight:600;margin-bottom:4px;">Træk CSV eller Excel fil hertil</div><div style="color:var(--text2);font-size:12px;">eller klik for at vælge</div><input type="file" id="impFile" accept=".csv,.xlsx,.xls" style="display:none;"></div>
+    <div style="margin-top:12px;background:var(--bg3);border-radius:5px;padding:10px;font-size:11px;color:var(--text2);"><strong style="color:var(--text);">Kolonner:</strong> navn · beskrivelse · stjerner · tags (semikolon) · varianter · link</div>
+    <div id="impStatus" style="margin-top:8px;"></div>
+  </div><div class="modal-footer"><button class="btn btn-ghost" id="mclose">Luk</button></div>`);
+}
+
+// ─── BIND ─────────────────────────────────────────────────────────────────────
+function bind() {
+  on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
+  on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
+  on('[data-qdel]',   el=>{const[qi,ti]=el.dataset.qdel.split('-').map(Number);S.quarters[qi].themes.splice(ti,1);scheduleSave('quarters');render();});
+  live('[data-qt]',   el=>{const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
+  on('[data-open]',   el=>{if(!event.target.closest('[data-edit],[data-arch]')){const t=S.trainings.find(x=>x.id===el.dataset.open);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}}});
+  on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
+  on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
+  ge('newTBtn')?.addEventListener('click',()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();});
+  ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
+  ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
+  ge('saveTBtn')?.addEventListener('click',saveTraining);
+  ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
+  on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
+  on('[data-tr]',     el=>{if(!S.draft)return;const tr=el.dataset.tr;const i=(S.draft.trainers||[]).indexOf(tr);i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);render();});
+  on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;render();});
+  ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
+  live('[data-mkey]', el=>{const[si,ei]=el.dataset.mkey.split('-').map(Number);if(S.draft?.sections[si]?.exercises[ei])S.draft.sections[si].exercises[ei].mins=parseInt(el.value)||0;updateSecMins();});
+  ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
+  on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
+  on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
+  on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
+  on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:''};render();});
+  on('[data-pickex]', el=>{S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});S.modal=null;render();});
+  on('[data-custex]', el=>{const n=prompt('Øvelses navn:');if(n){S.draft.sections[+el.dataset.custex].exercises.push({exerciseId:null,customName:n,mins:10});S.modal=null;render();}});
+  on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
+  ge('exPickQ')?.addEventListener('input',function(){S.modal.q=this.value;render();});
+  on('[data-ctab]',   el=>{S.catTab=el.dataset.ctab;render();});
+  ge('catQ')?.addEventListener('input',function(){S.catSearch=this.value;render();});
+  ge('catStar')?.addEventListener('change',function(){S.catFilter.stars=+this.value;render();});
+  on('[data-ctag]',   el=>{const t=el.dataset.ctag;const i=S.catFilter.tags.indexOf(t);i>=0?S.catFilter.tags.splice(i,1):S.catFilter.tags.push(t);render();});
+  ge('newExBtn')?.addEventListener('click',()=>{S.modal={type:'newEx'};render();});
+  ge('importBtn')?.addEventListener('click',()=>{S.modal={type:'import'};render();});
+  on('[data-exdetail]', el=>{
+    const id=el.dataset.exdetail; if(!id) return;
+    const all=S.halCatalog.concat(S.fysCatalog);
+    const ex=all.find(e=>e.id===id);
+    if(ex){event.stopPropagation();S.modal={type:'exDetail',ex};render();}
+  });
+  on('[data-editex]', el=>{const all=S.halCatalog.concat(S.fysCatalog);const ex=all.find(e=>e.id===el.dataset.editex);if(ex){S.modal={type:'editEx',ex};render();}});
+  on('[data-delexcat]',el=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();});
+  on('[data-exs]',    el=>{document.querySelectorAll('[data-exs]').forEach((s,i)=>s.classList.toggle('filled',i<+el.dataset.exs));});
+  on('[data-saveex]', el=>saveExercise(el.dataset.saveex));
+  bindImport();
+  ge('archStar')?.addEventListener('change',function(){S.archFilter.stars=+this.value;render();});
+  ge('archLoc')?.addEventListener('change',function(){S.archFilter.loc=this.value;render();});
+  ge('archTr')?.addEventListener('change',function(){S.archFilter.trainer=this.value;render();});
+  on('[data-clone]',  el=>{const t=S.trainings.find(x=>x.id===el.dataset.clone);if(!t)return;const c=JSON.parse(JSON.stringify(t));c.id=uid();c.archived=false;c.date='';c.stars=0;c.title=(c.title||'Træning')+' (kopi)';S.draft=c;S.tab='traening';render();});
+  on('[data-restore]',el=>{const t=S.trainings.find(x=>x.id===el.dataset.restore);if(t){t.archived=false;scheduleSave('trainings');toast('Genskabt');render();}});
+  on('[data-deltrain]',el=>{if(confirm('Slet permanent?')){S.trainings=S.trainings.filter(x=>x.id!==el.dataset.deltrain);scheduleSave('trainings');render();}});
+  ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});lsSave('templates',S.templates);toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
+  on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
+  on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);lsSave('templates',S.templates);render();});
+  ge('mclose')?.addEventListener('click',()=>{S.modal=null;render();});
+  ge('moverlay')?.addEventListener('click',e=>{if(e.target.id==='moverlay'){S.modal=null;render();}});
+}
+
+function saveTraining() {
+  const t=S.draft;
+  t.title=v('e-title'); t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
+  t.focusPoints=v('e-focus'); t.theme=v('e-theme'); t.notes=v('e-notes');
+  document.querySelectorAll('[data-mkey]').forEach(inp=>{
+    const[si,ei]=inp.dataset.mkey.split('-').map(Number);
+    if(t.sections[si]?.exercises[ei])t.sections[si].exercises[ei].mins=parseInt(inp.value)||0;
+  });
+  const idx=S.trainings.findIndex(x=>x.id===t.id);
+  if(idx>=0)S.trainings[idx]=t;else S.trainings.push(t);
+  scheduleSave('trainings');
+  toast('Træning gemt ✓');
+  S.draft=null;render();
+}
+
+function saveExercise(exId) {
+  const n=v('ex-n')?.trim();if(!n){toast('Navn mangler','err');return;}
+  const stars=document.querySelectorAll('#ex-stars .star.filled').length;
+  const catalog=v('ex-cat')||'hal';
+  const ex={id:exId!=='new'?exId:uid(),name:n,stars,catalog,
+    description:v('ex-d')||'',tags:(v('ex-t')||'').split(',').map(x=>x.trim()).filter(Boolean),
+    variants:v('ex-v')||'',link:v('ex-l')||''};
+  const arr=catalog==='hal'?S.halCatalog:S.fysCatalog;
+  const idx=arr.findIndex(e=>e.id===ex.id);
+  if(idx>=0)arr[idx]=ex;else arr.push(ex);
+  scheduleSave(catalog);
+  toast('Øvelse gemt ✓');S.modal=null;render();
+}
+
+function bindImport() {
+  const dz=ge('dropZ');
+  if(dz){
+    dz.addEventListener('click',()=>ge('impFile')?.click());
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');handleImport(e.dataTransfer.files[0]);});
+  }
+  ge('impFile')?.addEventListener('change',function(){handleImport(this.files[0]);});
+}
+
+function handleImport(file) {
+  if(!file)return;
+  const ct=v('imp-cat')||'hal', st=ge('impStatus');
+  if(st)st.innerHTML='<span style="color:var(--yellow);">Indlæser…</span>';
+  if(file.name.endsWith('.csv')){
+    const r=new FileReader();r.onload=e=>applyImport(parseCSV(e.target.result,ct),ct,st);r.readAsText(file,'UTF-8');
+  } else {
+    const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];applyImport(parseRows(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}),ct),ct,st);}catch(err){if(st)st.innerHTML=`<span style="color:var(--red);">Fejl: ${err.message}</span>`;}};r.readAsArrayBuffer(file);
+  }
+}
+function parseCSV(text,cat){return text.split('\n').filter(l=>l.trim()).slice(1).map(line=>{const c=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));return{id:uid(),catalog:cat,name:c[0]||'',description:c[1]||'',stars:Math.min(5,Math.max(0,parseInt(c[2])||0)),tags:(c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),variants:c[4]||'',link:c[5]||''};}).filter(e=>e.name);}
+function parseRows(rows,cat){const skip=isNaN(rows[0]?.[2])?1:0;return rows.slice(skip).map(c=>({id:uid(),catalog:cat,name:String(c[0]||'').trim(),description:String(c[1]||'').trim(),stars:Math.min(5,Math.max(0,parseInt(c[2])||0)),tags:String(c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),variants:String(c[4]||'').trim(),link:String(c[5]||'').trim()})).filter(e=>e.name);}
+function applyImport(exs,ct,st){
+  if(!exs.length){if(st)st.innerHTML='<span style="color:var(--red);">Ingen øvelser fundet</span>';return;}
+  const arr=ct==='hal'?S.halCatalog:S.fysCatalog;
+  let add=0,upd=0;
+  exs.forEach(ex=>{const i=arr.findIndex(e=>e.name.toLowerCase()===ex.name.toLowerCase());if(i>=0){arr[i]={...arr[i],...ex,id:arr[i].id};upd++;}else{arr.push(ex);add++;}});
+  scheduleSave(ct);
+  if(st)st.innerHTML=`<span style="color:var(--green);">✓ ${add} nye, ${upd} opdateret</span>`;
+  toast(`${add} øvelser importeret`);
+  setTimeout(()=>{S.modal=null;render();},1400);
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function on(sel,fn){document.querySelectorAll(sel).forEach(el=>el.addEventListener('click',e=>fn(el,e)));}
+function live(sel,fn){document.querySelectorAll(sel).forEach(el=>el.addEventListener('input',e=>fn(el,e)));}
+function ge(id){return document.getElementById(id);}
+function v(id){return ge(id)?.value;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
+function durMin(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return Math.max(0,(eh*60+em)-(sh*60+sm));}
+function totalMins(t){return(t.sections||[]).reduce((s,sec)=>s+(sec.exercises||[]).reduce((m,e)=>m+(parseInt(e.mins)||0),0),0);}
+function fmtDay(d){return d?d.split('-')[2]:'?';}
+function fmtMon(d){if(!d)return'';return['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][+d.split('-')[1]-1]||'';}
+function updateSecMins(){(S.draft?.sections||[]).forEach((sec,si)=>{const tot=(sec.exercises||[]).reduce((m,ex)=>{const inp=document.querySelector(`[data-mkey="${si}-${(sec.exercises||[]).indexOf(ex)}"]`);return m+(parseInt(inp?.value)||parseInt(ex.mins)||0);},0);const el=ge(`sm-${si}`);if(el)el.textContent=tot+' min';});}
+function toast(msg,type='ok'){const c=ge('toastWrap');const d=document.createElement('div');d.className=`toast toast-${type}`;d.textContent=msg;c.appendChild(d);setTimeout(()=>d.remove(),2800);}
+
+// Load XLSX lib then start
+const s=document.createElement('script');
+s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+s.onload=()=>loadFromSheets();
+document.head.appendChild(s);
+</script>
+</body>
+</html>
