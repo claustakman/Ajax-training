@@ -614,20 +614,23 @@ function html_editor() {
 
 function html_sec(sec,si) {
   const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
-  // mins now stored on section directly
+  const collapsed=sec.collapsed||false;
+  const exCount=(sec.exercises||[]).length;
   return `<div class="sec-block ${def.cls}" data-si="${si}">
-    <div class="sec-block-head">
+    <div class="sec-block-head" style="cursor:pointer;" data-collapse="${si}">
+      <span style="color:var(--text3);font-size:11px;transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0deg)'};">▾</span>
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
       ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
-      <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="min" data-secmins="${si}" style="width:64px;flex-shrink:0;" title="Minutter til denne sektion">
-      <button class="btn btn-ghost btn-xs" data-par="${si}">${sec.parallel?'Fjern parallel':'Parallel'}</button>
-      <button class="btn btn-secondary btn-xs" data-addex="${si}">+ Øvelse</button>
-      <button class="btn btn-danger btn-xs" data-delsec="${si}">✕</button>
+      ${collapsed?`<span style="font-size:11px;color:var(--text3);">${exCount} øvelse${exCount!==1?'r':''} · ${sec.mins||0} min</span>`:''}
+      <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="min" data-secmins="${si}" style="width:64px;flex-shrink:0;${collapsed?'display:none;':''}" title="Minutter til denne sektion" onclick="event.stopPropagation()">
+      <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">${sec.parallel?'Fjern parallel':'Parallel'}</button>
+      <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">+ Øvelse</button>
+      <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
     </div>
-    <div class="sec-block-body">
+    ${collapsed?'':`<div class="sec-block-body">
       ${(sec.exercises||[]).map((ex,ei)=>html_exrow(ex,si,ei)).join('')}
-      ${!(sec.exercises||[]).length?`<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>`:''}
-    </div>
+      ${!exCount?`<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>`:''}
+    </div>`}
   </div>`;
 }
 
@@ -859,6 +862,13 @@ function bind() {
   ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
   on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
+  on('[data-collapse]', el=>{
+    const si=+el.dataset.collapse;
+    if(S.draft?.sections[si]!=null){
+      S.draft.sections[si].collapsed=!S.draft.sections[si].collapsed;
+      render();
+    }
+  });
   on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
   on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:'',tags:[]};render();});
   bindPickList();
