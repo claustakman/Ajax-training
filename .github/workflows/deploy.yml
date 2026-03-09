@@ -30,7 +30,7 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SHEETS_SPREADSHEET_ID }}
         run: |
           python3 - <<'PYEOF'
-          import os, re
+          import os, datetime
 
           email  = os.environ['CLIENT_EMAIL']
           key    = os.environ['PRIVATE_KEY']
@@ -44,14 +44,17 @@ jobs:
 
           html = html.replace('__SHEETS_CLIENT_EMAIL__', email)
           html = html.replace('__SHEETS_SPREADSHEET_ID__', sid)
-          # Key goes inside a template literal - escape backticks and backslashes
           key_escaped = key.replace('\\', '\\\\').replace('`', '\\`')
           html = html.replace('__SHEETS_PRIVATE_KEY__', key_escaped)
+
+          # Inject build timestamp for cache busting
+          ts = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+          html = html.replace('__BUILD_TS__', ts)
 
           with open('index.html', 'w') as f:
               f.write(html)
 
-          print("Injection complete")
+          print(f"Injection complete, build: {ts}")
           PYEOF
 
       - name: Setup Pages
