@@ -134,6 +134,49 @@
   .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:var(--text2)}
   .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── RESPONSIVE ─────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .content{padding:12px}
+    .topbar{padding:0 12px;height:48px}
+    .topbar-logo .logo-text{display:none}
+    .nav-tab{padding:0 10px;font-size:12px}
+    .sync-indicator span{display:none}
+
+    /* Editor: stack cards vertically */
+    .editor-grid{grid-template-columns:1fr !important}
+
+    /* Årshjul: single column */
+    .aarshjul-grid{grid-template-columns:1fr !important}
+
+    /* Theme text truncation fix */
+    .theme-inp{font-size:12px}
+    .q-num{font-size:24px}
+
+    /* Section header: wrap on small screens */
+    .sec-block-head{flex-wrap:wrap;gap:6px}
+    .sec-label{font-size:12px}
+
+    /* Catalog table: hide description and stars cols on mobile */
+    .cat-row{grid-template-columns:1fr 80px 40px 32px !important}
+    .cat-col-desc,.cat-col-stars{display:none}
+
+    /* Archive table: simplify */
+    .arch-tbl .hide-mobile{display:none}
+
+    /* Modal padding */
+    .modal-overlay{padding:12px 8px}
+    .modal-body{padding:14px}
+
+    /* Training card buttons stack */
+    .tcard-actions{flex-direction:column;align-items:stretch}
+    .tcard-actions .btn{justify-content:center}
+  }
+
+  @media (max-width: 480px) {
+    .nav-tab{padding:0 8px;font-size:11px;letter-spacing:.04em}
+    .pill{padding:4px 9px;font-size:12px}
+  }
 </style>
 </head>
 <body>
@@ -438,7 +481,7 @@ function html_aarshjul_tab() {
       <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ÅRSHJUL</h1>
       <p style="color:var(--text2);font-size:12px;margin-top:2px;">Sæson 2025/26 · 1. maj – 30. april</p></div>
     </div>
-    <div class="grid-2">${S.quarters.map((q,qi)=>`
+    <div class="grid-2 aarshjul-grid">${S.quarters.map((q,qi)=>`
       <div class="q-card">
         <div class="q-head" style="background:${q.color}18;border-bottom:2px solid ${q.color}20;">
           <span class="q-num" style="color:${q.color};">${q.label}</span>
@@ -523,7 +566,7 @@ function html_editor() {
         <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
       </div>
     </div>
-    <div class="grid-2" style="margin-bottom:14px;">
+    <div class="grid-2 editor-grid" style="margin-bottom:14px;">
       <div class="card"><div class="card-header"><span class="card-title">Oplysninger</span></div><div class="card-body">
         <div class="form-group"><label>Titel</label><input id="e-title" value="${esc(t.title||'')}" placeholder="fx Tirsdag – forsvar"></div>
         <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
@@ -531,17 +574,29 @@ function html_editor() {
           <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
           <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?`<span style="color:var(--red);"> ⚠ ${tot-dur} min over!</span>`:''}</div>
+        <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?`<span style="color:var(--red);"> ⚠ ${tot-dur} min over!</span>`:''}</div>
         <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
         <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
         <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
         <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
       </div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Trænere til stede</span></div><div class="card-body">
-        <div class="pill-group">${TRAINERS.map(tr=>`<button class="pill${(t.trainers||[]).includes(tr)?' active':''}" data-tr="${tr}">${tr}</button>`).join('')}</div>
-        <p style="font-size:11px;color:var(--text2);margin-top:8px;">Valgt: ${(t.trainers||[]).join(', ')||'Ingen'}</p>
-        <hr class="divider">
-        <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="5" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
+      <div class="card"><div class="card-header"><span class="card-title">Trænere & noter</span></div><div class="card-body">
+        <div class="form-group">
+          <label>Trænere til stede</label>
+          <div style="position:relative;">
+            <div id="tr-display" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px 32px 8px 11px;cursor:pointer;min-height:38px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;" onclick="toggleTrDropdown()">
+              ${(t.trainers||[]).length===0?`<span style="color:var(--text3);font-size:13px;">Vælg trænere…</span>`:(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;">${tr}</span>`).join('')}
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>
+            </div>
+            <div id="tr-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.5);margin-top:3px;overflow:hidden;">
+              ${TRAINERS.map(tr=>`<div style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" data-tr-opt="${tr}">
+                <span style="width:16px;height:16px;border-radius:3px;border:1px solid ${(t.trainers||[]).includes(tr)?'var(--accent)':'var(--border2)'};background:${(t.trainers||[]).includes(tr)?'var(--accent)':'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;">${(t.trainers||[]).includes(tr)?'✓':''}</span>
+                <span style="font-size:13px;">${tr}</span>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="4" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
       </div></div>
     </div>
     <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><button class="btn btn-secondary btn-sm" id="addSecBtn">+ Tilføj sektion</button></div>
@@ -555,12 +610,12 @@ function html_editor() {
 
 function html_sec(sec,si) {
   const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
-  const tot=(sec.exercises||[]).reduce((m,e)=>m+(parseInt(e.mins)||0),0);
+  // mins now stored on section directly
   return `<div class="sec-block ${def.cls}" data-si="${si}">
     <div class="sec-block-head">
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
       ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
-      <span class="sec-mins" id="sm-${si}">${tot} min</span>
+      <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="min" data-secmins="${si}" style="width:64px;flex-shrink:0;" title="Minutter til denne sektion">
       <button class="btn btn-ghost btn-xs" data-par="${si}">${sec.parallel?'Fjern parallel':'Parallel'}</button>
       <button class="btn btn-secondary btn-xs" data-addex="${si}">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}">✕</button>
@@ -578,11 +633,10 @@ function html_exrow(ex,si,ei) {
   const name=def?def.name:(ex.customName||'Fri øvelse');
   const tags=def?(def.tags||[]):[];
   return `<div class="ex-row">
-    <div class="ex-row-name">
+    <div class="ex-row-name" style="flex:1;">
       <div style="font-weight:500;line-height:1.3;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;" data-exdetail="${ex.exerciseId||''}">${esc(name)}</div>
       ${tags.length?`<div class="tags-wrap" style="margin-top:3px;">${tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join('')}</div>`:''}
     </div>
-    <input type="number" class="mins-inp" min="1" max="120" value="${ex.mins||''}" placeholder="min" data-mkey="${si}-${ei}">
     <button class="btn btn-danger btn-xs" data-delex="${si}-${ei}">✕</button>
   </div>`;
 }
@@ -616,13 +670,13 @@ function html_katalog_tab() {
     </div>
     ${allTags.length?`<div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Tags</div><div class="pill-group">${allTags.map(t=>`<button class="pill btn-sm${tf.includes(t)?' active':''}" data-ctag="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`:''}
     <div class="card">
-      <div class="cat-row cat-hdr"><div>Navn</div><div>Beskrivelse</div><div>Stjerner</div><div>Tags</div><div>Link</div><div></div></div>
+      <div class="cat-row cat-hdr"><div>Navn</div><div class="cat-col-desc">Beskrivelse</div><div class="cat-col-stars">Stjerner</div><div>Tags</div><div>Link</div><div></div></div>
       ${filtered.length===0?`<div class="empty"><div class="empty-icon">🏋️</div><p>${cat.length===0?'Importer øvelser fra Excel/CSV':'Ingen resultater'}</p></div>`
         :filtered.slice(0,120).map(ex=>`
         <div class="cat-row" data-editex="${ex.id}">
           <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
-          <div style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
-          <div class="stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
+          <div class="cat-col-desc" style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
+          <div class="cat-col-stars stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
           <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
           <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
           <div><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
@@ -653,13 +707,13 @@ function html_arkiv_tab() {
       <select id="archTr"   style="width:140px;"><option value="">Alle trænere</option>${TRAINERS.map(tr=>`<option value="${tr}" ${tf===tr?'selected':''}>${tr}</option>`).join('')}</select>
     </div>
     ${filtered.length===0?`<div class="empty"><div class="empty-icon">📁</div><p>Ingen arkiverede træninger</p></div>`
-      :`<table class="arch-tbl"><thead><tr><th>Dato</th><th>Titel</th><th>Sted</th><th>Varighed</th><th>Trænere</th><th>Vurdering</th><th></th></tr></thead><tbody>
+      :`<table class="arch-tbl"><thead><tr><th>Dato</th><th>Titel</th><th class="hide-mobile">Sted</th><th class="hide-mobile">Varighed</th><th class="hide-mobile">Trænere</th><th>Vurdering</th><th></th></tr></thead><tbody>
       ${filtered.map(t=>`<tr>
         <td style="color:var(--text2);white-space:nowrap;">${t.date||'–'}</td>
         <td><div style="font-weight:500;">${esc(t.title||'Træning')}</div>${t.focusPoints?`<div style="font-size:11px;color:var(--text2);">🎯 ${esc(t.focusPoints)}</div>`:''}</td>
-        <td>${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}</td>
-        <td><span style="background:var(--bg4);padding:2px 6px;border-radius:3px;font-size:11px;">${durMin(t.startTime,t.endTime)} min</span></td>
-        <td style="white-space:nowrap;">${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 5px;border-radius:3px;font-size:11px;">${tr}</span>`).join(' ')}</td>
+        <td class="hide-mobile">${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}</td>
+        <td class="hide-mobile"><span style="background:var(--bg4);padding:2px 6px;border-radius:3px;font-size:11px;">${durMin(t.startTime,t.endTime)} min</span></td>
+        <td class="hide-mobile" style="white-space:nowrap;">${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 5px;border-radius:3px;font-size:11px;">${tr}</span>`).join(' ')}</td>
         <td class="stars-sm">${t.stars?'★'.repeat(t.stars)+'☆'.repeat(5-t.stars):'–'}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-secondary btn-xs" data-clone="${t.id}">Kopi</button>
@@ -793,11 +847,11 @@ function bind() {
   ge('saveTBtn')?.addEventListener('click',saveTraining);
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
-  on('[data-tr]',     el=>{if(!S.draft)return;const tr=el.dataset.tr;const i=(S.draft.trainers||[]).indexOf(tr);i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);render();});
+  on('[data-tr-opt]', el=>{if(!S.draft)return;const tr=el.dataset.trOpt;if(!S.draft.trainers)S.draft.trainers=[];const i=S.draft.trainers.indexOf(tr);i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);render();});
   on('[data-etheme]', el=>{if(!S.draft)return;if(!S.draft.themes)S.draft.themes=[];const th=el.dataset.etheme;const i=S.draft.themes.indexOf(th);i>=0?S.draft.themes.splice(i,1):S.draft.themes.push(th);render();});
   on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;render();});
   ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
-  live('[data-mkey]', el=>{const[si,ei]=el.dataset.mkey.split('-').map(Number);if(S.draft?.sections[si]?.exercises[ei])S.draft.sections[si].exercises[ei].mins=parseInt(el.value)||0;updateSecMins();});
+  live('[data-secmins]', el=>{const si=+el.dataset.secmins;if(S.draft?.sections[si]!=null){S.draft.sections[si].mins=parseInt(el.value)||0;updateTotalMins();}});
   ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
   on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
@@ -897,9 +951,9 @@ function saveTraining() {
   const t=S.draft;
   t.title=v('e-title'); t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
   t.focusPoints=v('e-focus'); t.notes=v('e-notes');
-  document.querySelectorAll('[data-mkey]').forEach(inp=>{
-    const[si,ei]=inp.dataset.mkey.split('-').map(Number);
-    if(t.sections[si]?.exercises[ei])t.sections[si].exercises[ei].mins=parseInt(inp.value)||0;
+  document.querySelectorAll('[data-secmins]').forEach(inp=>{
+    const si=+inp.dataset.secmins;
+    if(t.sections[si]) t.sections[si].mins=parseInt(inp.value)||0;
   });
   const idx=S.trainings.findIndex(x=>x.id===t.id);
   if(idx>=0)S.trainings[idx]=t;else S.trainings.push(t);
@@ -966,6 +1020,8 @@ function applyImport(exs,ct,st){
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+function toggleTrDropdown(){const d=ge('tr-dropdown');if(d)d.style.display=d.style.display==='none'?'block':'none';}
+document.addEventListener('click',e=>{if(!e.target.closest('#tr-display')&&!e.target.closest('#tr-dropdown')){const d=ge('tr-dropdown');if(d)d.style.display='none';}});
 function on(sel,fn){document.querySelectorAll(sel).forEach(el=>el.addEventListener('click',e=>fn(el,e)));}
 function live(sel,fn){document.querySelectorAll(sel).forEach(el=>el.addEventListener('input',e=>fn(el,e)));}
 function ge(id){return document.getElementById(id);}
@@ -973,10 +1029,24 @@ function v(id){return ge(id)?.value;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
 function durMin(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return Math.max(0,(eh*60+em)-(sh*60+sm));}
-function totalMins(t){return(t.sections||[]).reduce((s,sec)=>s+(sec.exercises||[]).reduce((m,e)=>m+(parseInt(e.mins)||0),0),0);}
+function totalMins(t){return(t.sections||[]).reduce((s,sec)=>s+(parseInt(sec.mins)||0),0);}
 function fmtDay(d){return d?d.split('-')[2]:'?';}
 function fmtMon(d){if(!d)return'';return['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][+d.split('-')[1]-1]||'';}
-function updateSecMins(){(S.draft?.sections||[]).forEach((sec,si)=>{const tot=(sec.exercises||[]).reduce((m,ex)=>{const inp=document.querySelector(`[data-mkey="${si}-${(sec.exercises||[]).indexOf(ex)}"]`);return m+(parseInt(inp?.value)||parseInt(ex.mins)||0);},0);const el=ge(`sm-${si}`);if(el)el.textContent=tot+' min';});}
+function updateTotalMins(){
+  const t=S.draft; if(!t) return;
+  // Read current values from inputs
+  document.querySelectorAll('[data-secmins]').forEach(inp=>{
+    const si=+inp.dataset.secmins;
+    if(t.sections[si]) t.sections[si].mins=parseInt(inp.value)||0;
+  });
+  const dur=durMin(t.startTime,t.endTime);
+  const tot=totalMins(t);
+  const el=document.getElementById('total-mins-display');
+  if(el){
+    const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
+    el.innerHTML=`Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?'<span style="color:var(--red);"> ⚠ '+( tot-dur)+' min over!</span>':''}`;
+  }
+}
 function toast(msg,type='ok'){const c=ge('toastWrap');const d=document.createElement('div');d.className=`toast toast-${type}`;d.textContent=msg;c.appendChild(d);setTimeout(()=>d.remove(),2800);}
 
 // Load XLSX lib then start
