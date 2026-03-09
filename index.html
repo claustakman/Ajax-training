@@ -770,6 +770,15 @@ function html_m_import() {
 }
 
 // ─── BIND ─────────────────────────────────────────────────────────────────────
+// Event delegation for dynamically re-rendered pick list
+document.addEventListener('click', e=>{
+  const el=e.target.closest('[data-pickex]');
+  if(el && S.draft && S.modal?.type==='pickEx'){
+    S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});
+    S.modal=null;render();
+  }
+});
+
 function bind() {
   on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
   on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
@@ -794,7 +803,7 @@ function bind() {
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
   on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
   on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:'',tags:[]};render();});
-  on('[data-pickex]', el=>{S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});S.modal=null;render();});
+  bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
   on('[data-picktag]', el=>{
@@ -914,7 +923,12 @@ function saveExercise(exId) {
 }
 
 function bindPickList() {
-  on('[data-pickex]', el=>{S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});S.modal=null;render();});
+  document.querySelectorAll('[data-pickex]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});
+      S.modal=null;render();
+    });
+  });
 }
 
 function bindImport() {
