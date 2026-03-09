@@ -667,7 +667,7 @@ function html_editor() {
 
           <!-- Kolonne 3: Noter & Vurdering -->
           <div>
-            <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="5" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
+            <div class="form-group"><label>Interne noter</label><textarea id="e-notes" style="min-height:90px;max-height:260px;resize:vertical;overflow-y:auto;">${esc(t.notes||'')}</textarea></div>
             <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
           </div>
 
@@ -887,7 +887,7 @@ function html_m_pickex() {
 function html_m_editex(ex) {
   return mwrap(mhead(ex?'Rediger øvelse':'Ny øvelse')+`<div class="modal-body">
     <div class="form-group"><label>Navn</label><input id="ex-n" value="${esc(ex?ex.name:'')}" placeholder="Øvelsesnavn"></div>
-    <div class="form-group"><label>Beskrivelse</label><textarea id="ex-d" rows="2">${esc(ex?ex.description||'':'')}</textarea></div>
+    <div class="form-group"><label>Beskrivelse</label><textarea id="ex-d" style="min-height:90px;max-height:260px;resize:vertical;overflow-y:auto;">${esc(ex?ex.description||'':'')}</textarea></div>
     <div class="grid-2">
       <div class="form-group"><label>Vurdering</label><div class="stars" id="ex-stars">${[1,2,3,4,5].map(n=>`<span class="star${ex&&(ex.stars||0)>=n?' filled':''}" data-exs="${n}">★</span>`).join('')}</div></div>
       <div class="form-group"><label>Katalog</label><select id="ex-cat"><option value="hal" ${!ex||ex.catalog==='hal'?'selected':''}>Haltræning</option><option value="fys" ${ex&&ex.catalog==='fys'?'selected':''}>Fysisk træning</option></select></div>
