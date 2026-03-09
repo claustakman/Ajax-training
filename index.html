@@ -773,10 +773,15 @@ function html_katalog_tab() {
   return `<div style="max-width:1060px;margin:0 auto;">
     <div class="flex-between" style="margin-bottom:18px;flex-wrap:wrap;gap:10px;">
       <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ØVELSESKATALOG</h1>
-      <div class="flex-row">
-        <button class="btn btn-secondary" id="importBtn">📥 Importer CSV/Excel</button>
-        <button class="btn btn-ghost" id="exportCsvBtn">⬇ CSV</button>
-        <button class="btn btn-ghost" id="exportXlsxBtn">⬇ Excel</button>
+      <div class="flex-row" style="flex-wrap:wrap;gap:6px;">
+        <button class="btn btn-secondary" id="importBtn">📥 Import</button>
+        <div style="position:relative;display:inline-flex;">
+          <button class="btn btn-ghost" id="exportMenuBtn">⬇ Export ▾</button>
+          <div id="export-menu" style="display:none;position:absolute;top:100%;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.5);margin-top:3px;min-width:130px;overflow:hidden;">
+            <div id="exportCsvBtn" style="padding:9px 14px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">⬇ CSV</div>
+            <div id="exportXlsxBtn" style="padding:9px 14px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">⬇ Excel (.xls)</div>
+          </div>
+        </div>
         <button class="btn btn-primary" id="newExBtn">+ Ny øvelse</button>
       </div>
     </div>
@@ -959,7 +964,9 @@ function bind() {
   ge('delTBtn')?.addEventListener('click',()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();});
   ge('saveTBtn')?.addEventListener('click',saveTraining);
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
-  on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
+  on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;
+    document.querySelectorAll('[data-loc]').forEach(p=>p.classList.toggle('active',p.dataset.loc===S.draft.location));
+  });
   if(!document._trOptBound){document._trOptBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-tr-opt]');
     if(!el||!S.draft)return;
@@ -980,19 +987,30 @@ function bind() {
       disp.innerHTML=pills+'<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>';
     }
   });}
-  on('[data-etheme]', el=>{if(!S.draft)return;if(!S.draft.themes)S.draft.themes=[];const th=el.dataset.etheme;const i=S.draft.themes.indexOf(th);i>=0?S.draft.themes.splice(i,1):S.draft.themes.push(th);render();});
-  on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;render();});
-  ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
+  on('[data-etheme]', el=>{if(!S.draft)return;if(!S.draft.themes)S.draft.themes=[];const th=el.dataset.etheme;const i=S.draft.themes.indexOf(th);i>=0?S.draft.themes.splice(i,1):S.draft.themes.push(th);
+    el.classList.toggle('active', S.draft.themes.includes(th));
+    const summary=el.closest('.form-group')?.querySelector('p');
+    if(summary) summary.textContent=S.draft.themes.join(' · ')||'Ingen valgt';
+  });
+  on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;
+    document.querySelectorAll('[data-estr]').forEach(s=>s.classList.toggle('filled',+s.dataset.estr<=S.draft.stars));
+  });
+  ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;
+    const dur=durMin(S.draft.startTime,S.draft.endTime),tot=totalMins(S.draft);
+    const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
+    const el=ge('total-mins-display');
+    if(el) el.innerHTML='Varighed: <strong style="font-size:16px;">'+(dur>0?dur+' min':'–')+'</strong> &nbsp;·&nbsp; Planlagt: <strong class="'+mc+'" style="font-size:16px;">'+tot+' min</strong>'+(tot>dur&&dur>0?'<span style="color:var(--red);font-weight:600;"> ⚠ '+(tot-dur)+' over</span>':'');
+  });});
   live('[data-secmins]', el=>{const si=+el.dataset.secmins;if(S.draft?.sections[si]!=null){S.draft.sections[si].mins=parseInt(el.value)||0;updateTotalMins();}});
   ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
   on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,exercises:[]});S.modal=null;render();});
-  on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
+  on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);renderSecs();});
   // collapse handled by document delegation
   document.addEventListener('change',e=>{const el=e.target.closest('[data-grpsel]');if(!el||!S.draft)return;const s=S.draft.sections[+el.dataset.grpsel];if(s){s.group=el.value||undefined;renderSecs();}});
   // addex handled by document delegation
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
-  on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
+  on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);renderSecs();});
   // Document-level delegation for all section/exercise operations that need DOM-only updates
   if(!document._exCheckBound){document._exCheckBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-excheck]');
@@ -1107,7 +1125,7 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     const wrap=document.getElementById('exPickList');
     if(wrap) wrap.innerHTML=renderPickList(f,S.modal.si);
   });
-  on('[data-ctab]',   el=>{S.catTab=el.dataset.ctab;render();});
+  on('[data-ctab]',   el=>{S.catTab=el.dataset.ctab;S.catSearch='';S.catFilter={tags:[],stars:0};render();});
   ge('catQ')?.addEventListener('input',function(){
     S.catSearch=this.value;
     const q=this.value.toLowerCase();
@@ -1126,8 +1144,16 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   on('[data-ctag]',   el=>{const t=el.dataset.ctag;const i=S.catFilter.tags.indexOf(t);i>=0?S.catFilter.tags.splice(i,1):S.catFilter.tags.push(t);render();});
   ge('newExBtn')?.addEventListener('click',()=>{S.modal={type:'newEx'};render();});
   ge('importBtn')?.addEventListener('click',()=>{S.modal={type:'import'};render();});
-  ge('exportCsvBtn')?.addEventListener('click',()=>exportCatalog('csv'));
-  ge('exportXlsxBtn')?.addEventListener('click',()=>exportCatalog('xlsx'));
+  // Export menu — document delegation so it works after render
+  if(!document._exportMenuBound){document._exportMenuBound=true;
+    document.addEventListener('click',e=>{
+      if(e.target.closest('#exportMenuBtn')){e.stopPropagation();const m=ge('export-menu');if(m)m.style.display=m.style.display==='none'?'block':'none';return;}
+      if(e.target.closest('#exportCsvBtn')){const m=ge('export-menu');if(m)m.style.display='none';exportCatalog('csv');return;}
+      if(e.target.closest('#exportXlsxBtn')){const m=ge('export-menu');if(m)m.style.display='none';exportCatalog('xlsx');return;}
+      // close on outside click
+      if(!e.target.closest('#export-menu')){const m=ge('export-menu');if(m)m.style.display='none';}
+    });
+  }
   if(!document._exdetailBound){document._exdetailBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-exdetail]');
     if(!el)return;
