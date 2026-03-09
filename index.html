@@ -520,7 +520,7 @@ function html_aarshjul_tab() {
 // ─── TRÆNING LIST ─────────────────────────────────────────────────────────────
 function html_traening_tab() {
   if (S.draft) return html_editor();
-  const upcoming = S.trainings.filter(t=>!t.archived).sort((a,b)=>a.date>b.date?1:-1);
+  const upcoming = S.trainings.filter(t=>!t.archived).sort((a,b)=>{if(!a.date&&!b.date)return 0;if(!a.date)return 1;if(!b.date)return -1;return a.date>b.date?1:-1;});
   return `<div style="max-width:960px;margin:0 auto;">
     <div class="flex-between" style="margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">TRÆNINGER</h1>
@@ -541,9 +541,10 @@ function html_tcard(t) {
   const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
   return `<div class="list-item" data-open="${t.id}">
     <div style="display:flex;align-items:flex-start;gap:12px;">
-      <div style="background:var(--bg4);border-radius:5px;padding:7px 10px;text-align:center;flex-shrink:0;min-width:48px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;line-height:1;">${fmtDay(t.date)}</div>
-        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;">${fmtMon(t.date)}</div>
+      <div style="background:var(--bg4);border-radius:6px;padding:8px 12px;text-align:center;flex-shrink:0;min-width:56px;border-top:3px solid var(--accent);">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">${fmtMon(t.date)||'–'}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;line-height:1;color:var(--text);">${fmtDay(t.date)}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${fmtWday(t.date)}</div>
       </div>
       <div style="flex:1;min-width:0;">
         <div class="list-title">${esc(t.title||'Træning')}</div>
@@ -1135,7 +1136,8 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
 function durMin(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return Math.max(0,(eh*60+em)-(sh*60+sm));}
 function totalMins(t){return(t.sections||[]).reduce((s,sec)=>s+(parseInt(sec.mins)||0),0);}
-function fmtDay(d){return d?d.split('-')[2]:'?';}
+function fmtDay(d){return d?+d.split('-')[2]:'?';}
+function fmtWday(d){if(!d)return'';const days=['søn','man','tir','ons','tor','fre','lør'];return days[new Date(d).getDay()]||'';}
 function fmtMon(d){if(!d)return'';return['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][+d.split('-')[1]-1]||'';}
 function updateTotalMins(){
   const t=S.draft; if(!t) return;
