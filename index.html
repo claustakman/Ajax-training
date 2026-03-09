@@ -138,6 +138,13 @@
   .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:var(--text2)}
   .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .grp-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:11px;font-weight:800;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;}
+  .grp-border-A{border-left-color:#f59e0b!important}
+  .grp-border-B{border-left-color:#8b5cf6!important}
+  .grp-border-C{border-left-color:#06b6d4!important}
+  .grp-border-D{border-left-color:#ec4899!important}
+  .grp-border-E{border-left-color:#22c55e!important}
+  .grp-border-F{border-left-color:#f97316!important}
 
   /* ── RESPONSIVE ─────────────────────────────────────────── */
   @media (max-width: 640px) {
@@ -547,7 +554,7 @@ function html_tcard(t) {
         <div style="font-size:10px;color:var(--text3);margin-top:2px;">${fmtWday(t.date)}</div>
       </div>
       <div style="flex:1;min-width:0;">
-        <div class="list-title">${esc(t.title||'Træning')}</div>
+        <div class="list-title">${trainingLabel(t)}</div>
         <div class="list-meta" style="margin-bottom:5px;">
           <span>${t.startTime||'–'} – ${t.endTime||'–'} <span style="background:var(--bg4);padding:1px 6px;border-radius:3px;font-size:11px;">${dur} min</span></span>
           ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">📍 ${t.location}</span>`:''}
@@ -584,7 +591,6 @@ function html_editor() {
     </div>
     <div class="grid-2 editor-grid" style="margin-bottom:14px;">
       <div class="card"><div class="card-header"><span class="card-title">Oplysninger</span></div><div class="card-body">
-        <div class="form-group"><label>Titel</label><input id="e-title" value="${esc(t.title||'')}" placeholder="fx Tirsdag – forsvar"></div>
         <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
           <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
           <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
@@ -636,7 +642,7 @@ function html_sec(sec,si) {
   const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
   const collapsed=sec.collapsed||false;
   const exCount=(sec.exercises||[]).length;
-  return `<div class="sec-block ${def.cls}" data-si="${si}">
+  return `<div class="sec-block ${def.cls}${sec.group?` grp-border-${sec.group}`:''}" data-si="${si}">
     <div class="sec-block-head" style="cursor:pointer;" data-collapse="${si}">
       <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
         <button class="btn btn-ghost btn-xs" style="padding:1px 4px;font-size:10px;line-height:1;${si===0?'opacity:.25;cursor:default;':''}" data-movesec="${si}-up" ${si===0?'disabled':''}>▲</button>
@@ -644,13 +650,16 @@ function html_sec(sec,si) {
       </div>
       <span style="color:var(--text3);font-size:11px;transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0deg)'};">▾</span>
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
-      ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
+      ${sec.group?grpBadge(sec.group):''}
       ${collapsed?`<span style="font-size:13px;color:var(--text2);">${exCount} øvelse${exCount!==1?'r':''}</span><span style="font-size:15px;font-weight:700;color:var(--text);margin-left:6px;">${sec.mins||'–'} <span style="font-size:12px;font-weight:500;color:var(--text2);">min</span></span>`:''}
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;${collapsed?'display:none;':''}" onclick="event.stopPropagation()">
         <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="–" data-secmins="${si}" style="width:52px;font-size:15px;font-weight:700;text-align:center;padding:4px 6px;" title="Minutter til denne sektion">
         <span style="font-size:13px;font-weight:600;color:var(--text2);">min</span>
       </div>
-      <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}">${sec.parallel?'Fjern parallel':'Parallel'}</button>
+      <select class="btn btn-ghost btn-xs" data-grpsel="${si}" style="padding:3px 4px;font-size:11px;${collapsed?'display:none;':''}" onclick="event.stopPropagation()" title="Parallel gruppe">
+        <option value="">Gruppe –</option>
+        ${GROUPS.map(g=>`<option value="${g}" ${sec.group===g?'selected':''}>${g}</option>`).join('')}
+      </select>
       <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
     </div>
@@ -751,10 +760,10 @@ function html_arkiv_tab() {
       <select id="archTr"   style="width:140px;"><option value="">Alle trænere</option>${TRAINERS.map(tr=>`<option value="${tr}" ${tf===tr?'selected':''}>${tr}</option>`).join('')}</select>
     </div>
     ${filtered.length===0?`<div class="empty"><div class="empty-icon">📁</div><p>Ingen arkiverede træninger</p></div>`
-      :`<table class="arch-tbl"><thead><tr><th>Dato</th><th>Titel</th><th class="hide-mobile">Sted</th><th class="hide-mobile">Varighed</th><th class="hide-mobile">Trænere</th><th>Vurdering</th><th></th></tr></thead><tbody>
+      :`<table class="arch-tbl"><thead><tr><th>Dato</th><th>Træning</th><th class="hide-mobile">Sted</th><th class="hide-mobile">Varighed</th><th class="hide-mobile">Trænere</th><th>Vurdering</th><th></th></tr></thead><tbody>
       ${filtered.map(t=>`<tr>
         <td style="color:var(--text2);white-space:nowrap;">${t.date||'–'}</td>
-        <td><div style="font-weight:500;">${esc(t.title||'Træning')}</div>${t.focusPoints?`<div style="font-size:11px;color:var(--text2);">🎯 ${esc(t.focusPoints)}</div>`:''}</td>
+        <td><div style="font-weight:500;">${trainingLabel(t)}</div>${t.focusPoints?`<div style="font-size:11px;color:var(--text2);">🎯 ${esc(t.focusPoints)}</div>`:''}</td>
         <td class="hide-mobile">${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}</td>
         <td class="hide-mobile"><span style="background:var(--bg4);padding:2px 6px;border-radius:3px;font-size:11px;">${durMin(t.startTime,t.endTime)} min</span></td>
         <td class="hide-mobile" style="white-space:nowrap;">${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 5px;border-radius:3px;font-size:11px;">${tr}</span>`).join(' ')}</td>
@@ -897,10 +906,10 @@ function bind() {
   ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
   live('[data-secmins]', el=>{const si=+el.dataset.secmins;if(S.draft?.sections[si]!=null){S.draft.sections[si].mins=parseInt(el.value)||0;updateTotalMins();}});
   ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
-  on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
+  on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,exercises:[]});S.modal=null;render();});
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
   // collapse handled by document delegation
-  on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
+  document.addEventListener('change',e=>{const el=e.target.closest('[data-grpsel]');if(!el||!S.draft)return;const s=S.draft.sections[+el.dataset.grpsel];if(s){s.group=el.value||undefined;renderSecs();}});
   // addex handled by document delegation
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
@@ -1055,7 +1064,8 @@ function bind() {
 
 function saveTraining() {
   const t=S.draft;
-  t.title=v('e-title'); t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
+  t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
+  t.title=trainingLabel(t);
   t.focusPoints=v('e-focus'); t.notes=v('e-notes');
   document.querySelectorAll('[data-secmins]').forEach(inp=>{
     const si=+inp.dataset.secmins;
@@ -1135,7 +1145,31 @@ function v(id){return ge(id)?.value;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
 function durMin(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return Math.max(0,(eh*60+em)-(sh*60+sm));}
-function totalMins(t){return(t.sections||[]).reduce((s,sec)=>s+(parseInt(sec.mins)||0),0);}
+function totalMins(t){
+  const secs=t.sections||[];
+  // For grouped sections: only count the max mins within each group (they run in parallel)
+  const groups={};
+  let total=0;
+  secs.forEach(sec=>{
+    const m=parseInt(sec.mins)||0;
+    if(sec.group){
+      groups[sec.group]=Math.max(groups[sec.group]||0,m);
+    } else {
+      total+=m;
+    }
+  });
+  Object.values(groups).forEach(m=>total+=m);
+  return total;
+}
+function trainingLabel(t){
+  const wday=fmtWday(t.date);
+  const loc=t.location||'';
+  const parts=[wday,loc].filter(Boolean);
+  return parts.length?parts.map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' · '):'Træning';
+}
+const GRP_CLR={A:['#f59e0b','#78350f'],B:['#8b5cf6','#2e1065'],C:['#06b6d4','#164e63'],D:['#ec4899','#500724'],E:['#22c55e','#14532d'],F:['#f97316','#431407']};
+const GROUPS=['A','B','C','D','E','F'];
+function grpBadge(g){if(!g)return'';const[bg,fg]=GRP_CLR[g]||['#888','#000'];return`<span class="grp-badge" style="background:${bg};color:${fg};">${g}</span>`;}
 function fmtDay(d){return d?+d.split('-')[2]:'?';}
 function fmtWday(d){if(!d)return'';const days=['søn','man','tir','ons','tor','fre','lør'];return days[new Date(d).getDay()]||'';}
 function fmtMon(d){if(!d)return'';return['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][+d.split('-')[1]-1]||'';}
