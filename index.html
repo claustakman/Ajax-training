@@ -171,6 +171,7 @@
 
     /* Editor: stack cards vertically */
     .editor-grid{grid-template-columns:1fr !important}
+    .info-grid{grid-template-columns:1fr !important}
 
     /* Årshjul: single column */
     .aarshjul-grid{grid-template-columns:1fr !important}
@@ -512,7 +513,7 @@ function html_topbar() {
   const tabs = [{id:'traening',l:'Træning'},{id:'aarshjul',l:'Årshjul'},{id:'katalog',l:'Katalog'},{id:'arkiv',l:'Arkiv'}];
   return `<div class="topbar">
     <div class="topbar-logo">
-      <svg width="34" height="34" viewBox="0 0 60 60"><circle cx="30" cy="30" r="29" fill="#C8102E" stroke="#fff" stroke-width="1.5"/><text x="30" y="42" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="900" font-size="26" fill="white" letter-spacing="1">A</text></svg>
+      <img src="icon.png" width="34" height="34" style="border-radius:50%;object-fit:cover;" alt="Ajax logo">
       <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
     </div>
     <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
@@ -628,19 +629,29 @@ function html_editor() {
         <span class="info-chevron" style="color:var(--text3);font-size:13px;transition:transform .2s;flex-shrink:0;">▾</span>
       </div>
       <div id="info-body" class="card-body">
-        <div class="grid-2 editor-grid" style="gap:16px;">
+        <div class="info-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+
+          <!-- Kolonne 1: Tid & Sted -->
           <div>
-            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
+            <div class="form-row" style="grid-template-columns:1fr 1fr;">
               <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
-              <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
-              <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
+                <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
+              </div>
             </div>
-            <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} min over!</span>`:''}</div>
+            <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} over</span>`:''}</div>
             <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
-            <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
-            <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
             <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
           </div>
+
+          <!-- Kolonne 2: Fokus & Temaer -->
+          <div>
+            <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
+            <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
+          </div>
+
+          <!-- Kolonne 3: Trænere & Noter -->
           <div>
             <div class="form-group">
               <label>Trænere til stede</label>
@@ -659,6 +670,7 @@ function html_editor() {
             </div>
             <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="4" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
           </div>
+
         </div>
       </div>
     </div>
