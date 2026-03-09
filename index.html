@@ -419,8 +419,19 @@ async function loadFromSheets() {
     ]);
     if (trainings !== null) S.trainings  = trainings;
     if (quarters  !== null) S.quarters   = quarters;
-    if (hal       !== null) S.halCatalog = hal;
-    if (fys       !== null) S.fysCatalog = fys;
+    // If catalog was empty in Sheets, write the hardcoded data up
+    if (hal !== null) {
+      S.halCatalog = hal;
+    } else {
+      await saveCatalog(SHEETS.hal, S.halCatalog);
+      toast('Haltræningskatalog gemt i regneark', 'info');
+    }
+    if (fys !== null) {
+      S.fysCatalog = fys;
+    } else {
+      await saveCatalog(SHEETS.fys, S.fysCatalog);
+      toast('Fysisk træningskatalog gemt i regneark', 'info');
+    }
     S.syncStatus = 'ok';
   } catch(e) {
     S.syncStatus = 'err';
@@ -639,7 +650,13 @@ function html_exrow(ex,si,ei) {
   const def=all.find(c=>c.id===ex.exerciseId);
   const name=def?def.name:(ex.customName||'Fri øvelse');
   const tags=def?(def.tags||[]):[];
+  const sec=S.draft?.sections[si];
+  const total=(sec?.exercises||[]).length;
   return `<div class="ex-row">
+    <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
+      <button class="btn btn-ghost btn-xs" style="padding:1px 5px;font-size:11px;line-height:1;${ei===0?'opacity:.25;cursor:default;':''}" data-moveex="${si}-${ei}-up" ${ei===0?'disabled':''}>▲</button>
+      <button class="btn btn-ghost btn-xs" style="padding:1px 5px;font-size:11px;line-height:1;${ei===total-1?'opacity:.25;cursor:default;':''}" data-moveex="${si}-${ei}-down" ${ei===total-1?'disabled':''}>▼</button>
+    </div>
     <div class="ex-row-name" style="flex:1;">
       <div style="font-weight:500;line-height:1.3;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;" data-exdetail="${ex.exerciseId||''}">${esc(name)}</div>
       ${tags.length?`<div class="tags-wrap" style="margin-top:3px;">${tags.map(tg=>`<span class="tag">${esc(tg)}</span>`).join('')}</div>`:''}
@@ -649,6 +666,20 @@ function html_exrow(ex,si,ei) {
 }
 
 // ─── KATALOG ──────────────────────────────────────────────────────────────────
+function renderCatRows(filtered, cat) {
+  if(filtered.length===0) return `<div class="empty"><div class="empty-icon">🏋️</div><p>${(cat||[]).length===0?'Importer øvelser fra Excel/CSV':'Ingen resultater'}</p></div>`;
+  return filtered.slice(0,120).map(ex=>`
+    <div class="cat-row" data-editex="${ex.id}">
+      <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
+      <div class="cat-col-desc" style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
+      <div class="cat-col-stars stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
+      <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
+      <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
+      <div><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
+    </div>`).join('')
+  + (filtered.length>120?`<div style="padding:10px;text-align:center;color:var(--text2);font-size:12px;">Viser 120 af ${filtered.length} – søg for at filtrere</div>`:'');
+}
+
 function html_katalog_tab() {
   const cat=S.catTab==='hal'?S.halCatalog:S.fysCatalog;
   const q=S.catSearch.toLowerCase(), tf=S.catFilter.tags, sf=S.catFilter.stars;
@@ -678,17 +709,7 @@ function html_katalog_tab() {
     ${allTags.length?`<div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Tags</div><div class="pill-group">${allTags.map(t=>`<button class="pill btn-sm${tf.includes(t)?' active':''}" data-ctag="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`:''}
     <div class="card">
       <div class="cat-row cat-hdr"><div>Navn</div><div class="cat-col-desc">Beskrivelse</div><div class="cat-col-stars">Stjerner</div><div>Tags</div><div>Link</div><div></div></div>
-      ${filtered.length===0?`<div class="empty"><div class="empty-icon">🏋️</div><p>${cat.length===0?'Importer øvelser fra Excel/CSV':'Ingen resultater'}</p></div>`
-        :filtered.slice(0,120).map(ex=>`
-        <div class="cat-row" data-editex="${ex.id}">
-          <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
-          <div class="cat-col-desc" style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
-          <div class="cat-col-stars stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
-          <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
-          <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
-          <div><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
-        </div>`).join('')}
-      ${filtered.length>120?`<div style="padding:10px;text-align:center;color:var(--text2);font-size:12px;">Viser 120 af ${filtered.length} – søg for at filtrere</div>`:''}
+      <div id="catTableBody">${renderCatRows(filtered,cat)}</div>
     </div>
   </div>`;
 }
@@ -874,6 +895,15 @@ function bind() {
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
+  on('[data-moveex]', el=>{
+    const parts=el.dataset.moveex.split('-');
+    const si=+parts[0],ei=+parts[1],dir=parts[2];
+    const exs=S.draft.sections[si].exercises;
+    const target=dir==='up'?ei-1:ei+1;
+    if(target<0||target>=exs.length)return;
+    [exs[ei],exs[target]]=[exs[target],exs[ei]];
+    render();
+  });
   on('[data-picktag]', el=>{
     if(!S.modal||S.modal.type!=='pickEx') return;
     const t=el.dataset.picktag;
