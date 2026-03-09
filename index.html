@@ -638,7 +638,7 @@ function html_sec(sec,si) {
       <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
     </div>
-    ${collapsed?'':`<div class="sec-block-body">
+    ${collapsed?'':`<div class="sec-block-body" id="sbd-${si}">
       ${(sec.exercises||[]).map((ex,ei)=>html_exrow(ex,si,ei)).join('')}
       ${!exCount?`<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>`:''}
     </div>`}
@@ -902,7 +902,14 @@ function bind() {
     const target=dir==='up'?ei-1:ei+1;
     if(target<0||target>=exs.length)return;
     [exs[ei],exs[target]]=[exs[target],exs[ei]];
-    render();
+    // Update only this section's body — no scroll jump
+    const body=document.getElementById(`sbd-${si}`);
+    if(body){
+      body.innerHTML=exs.map((ex,i)=>html_exrow(ex,si,i)).join('')
+        +(exs.length?'':'<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>');
+    } else {
+      render();
+    }
   });
   on('[data-picktag]', el=>{
     if(!S.modal||S.modal.type!=='pickEx') return;
@@ -939,7 +946,20 @@ function bind() {
     if(wrap) wrap.innerHTML=renderPickList(f,S.modal.si);
   });
   on('[data-ctab]',   el=>{S.catTab=el.dataset.ctab;render();});
-  ge('catQ')?.addEventListener('input',function(){S.catSearch=this.value;render();});
+  ge('catQ')?.addEventListener('input',function(){
+    S.catSearch=this.value;
+    const q=this.value.toLowerCase();
+    const tf=S.catFilter.tags, sf=S.catFilter.stars;
+    const cat=S.catTab==='hal'?S.halCatalog:S.fysCatalog;
+    const filtered=cat.filter(ex=>{
+      if(q&&!ex.name.toLowerCase().includes(q)&&!(ex.variants||'').toLowerCase().includes(q))return false;
+      if(tf.length&&!tf.every(t=>(ex.tags||[]).includes(t)))return false;
+      if(sf&&(ex.stars||0)<sf)return false;
+      return true;
+    });
+    const wrap=document.getElementById('catTableBody');
+    if(wrap) wrap.innerHTML=renderCatRows(filtered,cat);
+  });
   ge('catStar')?.addEventListener('change',function(){S.catFilter.stars=+this.value;render();});
   on('[data-ctag]',   el=>{const t=el.dataset.ctag;const i=S.catFilter.tags.indexOf(t);i>=0?S.catFilter.tags.splice(i,1):S.catFilter.tags.push(t);render();});
   ge('newExBtn')?.addEventListener('click',()=>{S.modal={type:'newEx'};render();});
