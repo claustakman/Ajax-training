@@ -143,6 +143,10 @@
   .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:var(--text2)}
   .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .ex-check{width:20px;height:20px;border-radius:4px;border:2px solid var(--border2);background:transparent;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;font-size:12px;}
+  .ex-check.checked{background:var(--green);border-color:var(--green);color:#fff;}
+  .ex-row.done .ex-row-name>div{text-decoration:line-through;opacity:.45;}
+  .sec-done-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--green);}
   .grp-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:11px;font-weight:800;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;}
   .grp-border-A{border-left-color:#f59e0b!important}
   .grp-border-B{border-left-color:#8b5cf6!important}
@@ -612,46 +616,51 @@ function html_editor() {
         <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
       </div>
     </div>
-    <div class="grid-2 editor-grid" style="margin-bottom:14px;">
-      <div class="card"><div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
-        <span class="card-title">Oplysninger</span>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
+        <span class="card-title">Oplysninger & trænere</span>
         <div id="info-summary" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);">
           <span>${t.date?fmtWday(t.date)+' '+fmtDay(t.date)+' '+fmtMon(t.date):'–'}</span>
           ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}
           <span>${t.startTime||''}${t.startTime&&t.endTime?' – ':''}${t.endTime||''}</span>
+          ${(t.trainers||[]).length?`<span style="color:var(--text3);">· ${(t.trainers||[]).join(', ')}</span>`:''}
         </div>
         <span class="info-chevron" style="color:var(--text3);font-size:13px;transition:transform .2s;flex-shrink:0;">▾</span>
       </div>
       <div id="info-body" class="card-body">
-        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
-          <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
-          <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
-          <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
-        </div>
-        <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} min over!</span>`:''}</div>
-        <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
-        <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
-        <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
-        <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
-      </div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Trænere & noter</span></div><div class="card-body">
-        <div class="form-group">
-          <label>Trænere til stede</label>
-          <div style="position:relative;">
-            <div id="tr-display" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px 32px 8px 11px;cursor:pointer;min-height:38px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;" onclick="toggleTrDropdown()">
-              ${(t.trainers||[]).length===0?`<span style="color:var(--text3);font-size:13px;">Vælg trænere…</span>`:(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;">${tr}</span>`).join('')}
-              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>
+        <div class="grid-2 editor-grid" style="gap:16px;">
+          <div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
+              <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
+              <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
+              <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
             </div>
-            <div id="tr-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.5);margin-top:3px;overflow:hidden;">
-              ${TRAINERS.map(tr=>`<div style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" data-tr-opt="${tr}">
-                <span style="width:16px;height:16px;border-radius:3px;border:1px solid ${(t.trainers||[]).includes(tr)?'var(--accent)':'var(--border2)'};background:${(t.trainers||[]).includes(tr)?'var(--accent)':'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;">${(t.trainers||[]).includes(tr)?'✓':''}</span>
-                <span style="font-size:13px;">${tr}</span>
-              </div>`).join('')}
+            <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} min over!</span>`:''}</div>
+            <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
+            <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
+            <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
+            <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
+          </div>
+          <div>
+            <div class="form-group">
+              <label>Trænere til stede</label>
+              <div style="position:relative;">
+                <div id="tr-display" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px 32px 8px 11px;cursor:pointer;min-height:38px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;" onclick="toggleTrDropdown()">
+                  ${(t.trainers||[]).length===0?`<span style="color:var(--text3);font-size:13px;">Vælg trænere…</span>`:(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;">${tr}</span>`).join('')}
+                  <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>
+                </div>
+                <div id="tr-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.5);margin-top:3px;overflow:hidden;">
+                  ${TRAINERS.map(tr=>`<div style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" data-tr-opt="${tr}">
+                    <span style="width:16px;height:16px;border-radius:3px;border:1px solid ${(t.trainers||[]).includes(tr)?'var(--accent)':'var(--border2)'};background:${(t.trainers||[]).includes(tr)?'var(--accent)':'transparent'};display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;">${(t.trainers||[]).includes(tr)?'✓':''}</span>
+                    <span style="font-size:13px;">${tr}</span>
+                  </div>`).join('')}
+                </div>
+              </div>
             </div>
+            <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="4" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
           </div>
         </div>
-        <div class="form-group"><label>Interne noter</label><textarea id="e-notes" rows="4" style="resize:vertical;">${esc(t.notes||'')}</textarea></div>
-      </div></div>
+      </div>
     </div>
     <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><button class="btn btn-secondary btn-sm" id="addSecBtn">+ Tilføj sektion</button></div>
       <div class="card-body" id="secs-wrap">
@@ -682,6 +691,7 @@ function html_sec(sec,si) {
       </div>
       <span style="color:var(--text3);font-size:11px;transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0deg)'};">▾</span>
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
+      ${(()=>{const exs=sec.exercises||[];const done=exs.filter(e=>e.done).length;if(!exs.length)return '';if(done===exs.length)return '<span class="sec-done-badge">✓ Færdig</span>';return `<span style="font-size:11px;color:var(--text3);">${done}/${exs.length}</span>`;})()}
       ${sec.group?grpBadge(sec.group):''}
       ${collapsed?`<span style="font-size:13px;color:var(--text2);">${exCount} øvelse${exCount!==1?'r':''}</span><span style="font-size:15px;font-weight:700;color:var(--text);margin-left:6px;">${sec.mins||'–'} <span style="font-size:12px;font-weight:500;color:var(--text2);">min</span></span>`:''}
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;${collapsed?'display:none;':''}" onclick="event.stopPropagation()">
@@ -709,7 +719,8 @@ function html_exrow(ex,si,ei) {
   const tags=def?(def.tags||[]):[];
   const sec=S.draft?.sections[si];
   const total=(sec?.exercises||[]).length;
-  return `<div class="ex-row">
+  return `<div class="ex-row${ex.done?' done':''}">
+    <span class="ex-check${ex.done?' checked':''}" data-excheck="${si}-${ei}" title="Afkryds øvelse">${ex.done?'✓':''}</span>
     <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;">
       <button class="btn btn-ghost btn-xs" style="padding:1px 5px;font-size:11px;line-height:1;${ei===0?'opacity:.25;cursor:default;':''}" data-moveex="${si}-${ei}-up" ${ei===0?'disabled':''}>▲</button>
       <button class="btn btn-ghost btn-xs" style="padding:1px 5px;font-size:11px;line-height:1;${ei===total-1?'opacity:.25;cursor:default;':''}" data-moveex="${si}-${ei}-down" ${ei===total-1?'disabled':''}>▼</button>
@@ -971,7 +982,42 @@ function bind() {
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
   // Document-level delegation for all section/exercise operations that need DOM-only updates
-  if(!document._secDelegBound){document._secDelegBound=true;document.addEventListener('click',e=>{
+  if(!document._exCheckBound){document._exCheckBound=true;document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-excheck]');
+    if(!el||!S.draft)return;
+    e.stopPropagation();
+    const[si,ei]=el.dataset.excheck.split('-').map(Number);
+    const ex=S.draft.sections[si]?.exercises[ei];
+    if(!ex)return;
+    ex.done=!ex.done;
+    scheduleSave('trainings');
+    // Update checkbox
+    el.classList.toggle('checked',ex.done);
+    el.textContent=ex.done?'✓':'';
+    // Update ex-row strikethrough
+    el.closest('.ex-row').classList.toggle('done',ex.done);
+    // Update section done indicator
+    const secEl=el.closest('[data-si]');
+    if(secEl){
+      const sec=S.draft.sections[si];
+      const exs=sec.exercises||[];
+      const doneCount=exs.filter(e=>e.done).length;
+      const badge=secEl.querySelector('.sec-done-badge,.sec-progress');
+      const label=secEl.querySelector('.sec-label');
+      if(label){
+        let ind=label.nextElementSibling;
+        // Remove old indicator
+        if(ind&&(ind.classList.contains('sec-done-badge')||ind.classList.contains('sec-progress'))){ind.remove();ind=null;}
+        if(exs.length){
+          const span=document.createElement('span');
+          if(doneCount===exs.length){span.className='sec-done-badge';span.textContent='✓ Færdig';}
+          else{span.className='sec-progress';span.style.cssText='font-size:11px;color:var(--text3);';span.textContent=doneCount+'/'+exs.length;}
+          label.insertAdjacentElement('afterend',span);
+        }
+      }
+    }
+  });}
+if(!document._secDelegBound){document._secDelegBound=true;document.addEventListener('click',e=>{
     // ── movesec ──────────────────────────────────────────────────
     const msEl=e.target.closest('[data-movesec]');
     if(msEl&&S.draft){
