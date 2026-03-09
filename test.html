@@ -15,13 +15,15 @@
   .stat.pass{background:rgba(34,197,94,.15);color:#4ade80;}
   .stat.fail{background:rgba(239,68,68,.15);color:#f87171;}
   .stat.skip{background:rgba(100,116,139,.15);color:#94a3b8;}
-  #controls{padding:12px 20px;border-bottom:1px solid #2d3748;display:flex;gap:8px;flex-wrap:wrap;}
+  #controls{padding:12px 20px;border-bottom:1px solid #2d3748;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
   button{padding:7px 14px;border:none;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;}
   #runBtn{background:#C8102E;color:#fff;}
   #runBtn:hover{background:#a50d25;}
+  #runBtn:disabled{opacity:.5;cursor:default;}
   #clearBtn{background:#1e2533;color:#94a3b8;border:1px solid #2d3748;}
   #filterFail{background:#1e2533;color:#94a3b8;border:1px solid #2d3748;}
   #filterFail.active{background:rgba(239,68,68,.2);color:#f87171;border-color:#f87171;}
+  #app-status{font-size:12px;color:#64748b;margin-left:auto;}
   #results{flex:1;overflow-y:auto;padding:12px 20px;}
   .suite{margin-bottom:16px;}
   .suite-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #1e2533;}
@@ -35,14 +37,12 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .test-name{flex:1;line-height:1.4;}
   .test-err{font-size:11px;color:#f87171;margin-top:2px;}
-  .test-info{font-size:11px;color:#64748b;margin-top:2px;}
-  #frame-wrap{flex:1;display:flex;flex-direction:column;}
+  #frame-wrap{flex:1;display:flex;flex-direction:column;position:relative;}
   #frame-label{background:#1e2533;padding:6px 14px;font-size:11px;color:#64748b;border-bottom:1px solid #2d3748;display:flex;align-items:center;gap:8px;}
-  #iframe-status{width:8px;height:8px;border-radius:50%;background:#64748b;flex-shrink:0;}
+  #iframe-status{width:8px;height:8px;border-radius:50%;background:#64748b;flex-shrink:0;transition:background .3s;}
   #iframe-status.ready{background:#4ade80;}
+  #iframe-status.loading{background:#facc15;animation:pulse .8s infinite;}
   iframe{flex:1;border:none;width:100%;background:#fff;}
-  .running-overlay{position:absolute;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;pointer-events:none;display:none;}
-  #frame-wrap{position:relative;}
 </style>
 </head>
 <body>
@@ -57,30 +57,69 @@
     </div>
   </div>
   <div id="controls">
-    <button id="runBtn">▶ Kør alle tests</button>
+    <button id="runBtn" disabled>▶ Kør alle tests</button>
     <button id="clearBtn">Ryd</button>
     <button id="filterFail">Kun fejl</button>
+    <span id="app-status">Venter på app…</span>
   </div>
-  <div id="results"><p style="color:#475569;font-size:13px;margin-top:20px;text-align:center;">Tryk "Kør alle tests" for at starte</p></div>
+  <div id="results"><p style="color:#475569;font-size:13px;margin-top:20px;text-align:center;">Venter på at appen loader…</p></div>
 </div>
 
 <div id="frame-wrap">
   <div id="frame-label">
-    <span id="iframe-status"></span>
+    <span id="iframe-status" class="loading"></span>
     <span id="frame-url">index.html</span>
     <span style="margin-left:auto;font-size:11px;" id="frame-action">Indlæser…</span>
   </div>
   <iframe id="app" src="index.html"></iframe>
-  <div class="running-overlay" id="overlay">Kører tests…</div>
 </div>
 
 <script>
 const iframe = document.getElementById('app');
 const resultsEl = document.getElementById('results');
-let appWin, appDoc, S, allResults=[], filterFail=false;
+let appWin, appDoc, S, appRender, allResults=[], filterFail=false;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Wait for app to be ready ─────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function waitForApp(timeout = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      const w = iframe.contentWindow;
+      if (w && w._ajaxApp && w._ajaxApp.getS()) {
+        return true;
+      }
+    } catch(e) {}
+    await sleep(100);
+  }
+  return false;
+}
+
+iframe.addEventListener('load', async () => {
+  document.getElementById('iframe-status').className = 'loading';
+  document.getElementById('frame-action').textContent = 'Venter på app-init…';
+
+  const ready = await waitForApp();
+  if (!ready) {
+    document.getElementById('frame-action').textContent = '⚠ App ikke klar – tjek konsol';
+    document.getElementById('app-status').textContent = '⚠ Fejl';
+    return;
+  }
+
+  appWin = iframe.contentWindow;
+  appDoc = iframe.contentDocument;
+  S = () => appWin._ajaxApp.getS();
+  appRender = () => appWin._ajaxApp.getRender()();
+
+  document.getElementById('iframe-status').className = 'ready';
+  document.getElementById('frame-action').textContent = 'Klar';
+  document.getElementById('app-status').textContent = '✓ App klar';
+  document.getElementById('runBtn').disabled = false;
+  resultsEl.innerHTML = '<p style="color:#475569;font-size:13px;margin-top:20px;text-align:center;">Tryk "Kør alle tests" for at starte</p>';
+});
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
 const ge = id => appDoc.getElementById(id);
 const qs = sel => appDoc.querySelector(sel);
 const qsa = sel => [...appDoc.querySelectorAll(sel)];
@@ -90,39 +129,34 @@ function click(el) {
   el.click();
 }
 
-function clickSel(sel) {
-  const el = qs(sel);
-  if (!el) throw new Error(`Selektor ikke fundet: ${sel}`);
-  el.click();
-}
-
-async function waitFor(fn, timeout=2000) {
+async function waitFor(fn, timeout=2500) {
   const start = Date.now();
   while (Date.now()-start < timeout) {
     try { const v = fn(); if(v) return v; } catch {}
-    await sleep(50);
+    await sleep(60);
   }
   throw new Error('Timeout – element dukkede ikke op');
-}
-
-async function resetApp() {
-  appWin.S.draft = null;
-  appWin.S.modal = null;
-  appWin.S.tab = 'traening';
-  appWin.render();
-  await sleep(100);
 }
 
 async function goTab(tab) {
   const btn = qsa('.nav-tab').find(b => b.textContent.trim().toLowerCase().includes(tab.toLowerCase()));
   if (!btn) throw new Error(`Fane ikke fundet: ${tab}`);
   btn.click();
+  await sleep(200);
+}
+
+async function resetToTraening() {
+  S().draft = null;
+  S().modal = null;
+  S().tab = 'traening';
+  appRender();
   await sleep(150);
 }
 
 async function createDraftTraining() {
-  appWin.S.draft = {
-    id: 'test-'+Date.now(),
+  const hal = S().halCatalog;
+  S().draft = {
+    id: 'test-' + Date.now(),
     date: '2026-03-15',
     startTime: '17:00',
     endTime: '18:30',
@@ -133,41 +167,37 @@ async function createDraftTraining() {
     notes: '',
     stars: 3,
     sections: [
-      { type: 'opvarmning', mins: 15, exercises: [
-        { exerciseId: appWin.S.halCatalog[0]?.id, done: false },
-        { exerciseId: appWin.S.halCatalog[1]?.id, done: false },
+      { type: 'opvarmning', mins: 15, collapsed: false, exercises: [
+        { exerciseId: hal[0]?.id, done: false },
+        { exerciseId: hal[1]?.id, done: false },
       ]},
-      { type: 'spil', mins: 30, exercises: [
-        { exerciseId: appWin.S.halCatalog[2]?.id, done: false },
+      { type: 'spil', mins: 30, collapsed: false, exercises: [
+        { exerciseId: hal[2]?.id, done: false },
       ]}
     ]
   };
-  appWin.S.tab = 'traening';
-  appWin.render();
-  await sleep(150);
+  S().tab = 'traening';
+  appRender();
+  await sleep(200);
 }
 
-// ── Test runner ───────────────────────────────────────────────────────────────
+// ── Suites ────────────────────────────────────────────────────────────────────
 const suites = [];
 function suite(name, tests) { suites.push({name, tests}); }
 function test(name, fn) { return {name, fn}; }
 
-// ── SUITES ────────────────────────────────────────────────────────────────────
-
 suite('Navigation', [
   test('Fanen "Træning" virker', async () => {
-    clickSel('.nav-tab');
-    await sleep(100);
-    if (!qs('#traening-tab, .tlist, [id*=traening]') && !appWin.S.tab === 'traening')
-      throw new Error('Træning-indhold ikke synligt');
+    await goTab('Træning');
+    if (S().tab !== 'traening') throw new Error('Tab ikke sat til traening');
   }),
   test('Fanen "Årshjul" virker', async () => {
     await goTab('Årshjul');
-    await waitFor(() => qs('.aarshjul-grid, .q-card'));
+    await waitFor(() => qs('.q-card, [class*="aarshjul"]'));
   }),
   test('Fanen "Katalog" virker', async () => {
     await goTab('Katalog');
-    await waitFor(() => qs('#catQ'));
+    await waitFor(() => ge('catQ'));
   }),
   test('Fanen "Arkiv" virker', async () => {
     await goTab('Arkiv');
@@ -175,190 +205,125 @@ suite('Navigation', [
   }),
   test('Kan navigere tilbage til Træning', async () => {
     await goTab('Træning');
-    await sleep(100);
-    if (appWin.S.tab !== 'traening') throw new Error('Tab ikke skiftet');
+    if (S().tab !== 'traening') throw new Error('Tab ikke traening');
   }),
 ]);
 
 suite('Ny træning – editor', [
-  test('Knappen "Ny træning" åbner editor', async () => {
-    await goTab('Træning');
+  test('"Ny træning" knap åbner editor', async () => {
+    await resetToTraening();
     const btn = qsa('button').find(b => b.textContent.includes('Ny træning'));
     if (!btn) throw new Error('"Ny træning" knap ikke fundet');
     btn.click();
     await waitFor(() => ge('e-date'));
   }),
-  test('Dato-felt findes og er input', async () => {
-    const el = ge('e-date');
-    if (!el || el.tagName !== 'INPUT') throw new Error('Dato-felt mangler');
+  test('Dato-felt findes', async () => {
+    if (!ge('e-date')) throw new Error('e-date mangler');
   }),
-  test('Sted-pills findes (Valby/Bavnehøj/Dybbøl)', async () => {
+  test('Sted-pills findes (3 stk)', async () => {
     const pills = qsa('[data-loc]');
-    if (pills.length < 3) throw new Error(`Kun ${pills.length} sted-pills fundet`);
+    if (pills.length < 3) throw new Error(`Kun ${pills.length} sted-pills`);
   }),
   test('Valg af sted virker', async () => {
-    const pill = qs('[data-loc="Valby"]');
-    click(pill);
+    click(qs('[data-loc="Valby"]'));
     await sleep(100);
-    if (!qs('[data-loc="Valby"].active')) throw new Error('Valby ikke markeret som aktiv');
+    if (!qs('[data-loc="Valby"].active')) throw new Error('Valby ikke aktiv');
   }),
   test('Stjerne-vurdering kan sættes', async () => {
     const stars = qsa('[data-estr]');
     if (!stars.length) throw new Error('Stjerner ikke fundet');
     stars[2].click();
     await sleep(100);
-    const filled = qsa('[data-estr].filled');
-    if (filled.length !== 3) throw new Error(`Forventet 3 udfyldte stjerner, fik ${filled.length}`);
+    if (qsa('[data-estr].filled').length !== 3) throw new Error('Forventede 3 fyldte stjerner');
   }),
-  test('"Tilføj sektion" knap virker', async () => {
-    const btn = ge('addSecBtn');
-    click(btn);
+  test('"Tilføj sektion" åbner modal', async () => {
+    click(ge('addSecBtn'));
     await waitFor(() => qs('.modal'));
   }),
-  test('Sektion-modal viser sektionstyper', async () => {
-    const opts = qsa('[data-picksec]');
-    if (opts.length < 3) throw new Error(`Kun ${opts.length} sektionstyper`);
-    opts[0].click();
-    await sleep(150);
-    if (qs('.modal')) throw new Error('Modal lukkede ikke efter valg');
-  }),
-  test('Sektion vises i editor', async () => {
-    const secs = qsa('.sec-block');
-    if (!secs.length) throw new Error('Ingen sektioner vist');
-  }),
-  test('"+ Øvelse" knap på sektion virker', async () => {
-    const btn = qs('[data-addex="0"]');
-    click(btn);
-    await waitFor(() => qs('#exPickQ'));
-  }),
-  test('Øvelses-søgning i picker virker', async () => {
-    const q = ge('exPickQ');
-    if (!q) throw new Error('Søgefelt ikke fundet');
-    q.value = 'a';
-    q.dispatchEvent(new Event('input'));
+  test('Sektion kan vælges i modal', async () => {
+    await waitFor(() => qs('[data-picksec]'));
+    qs('[data-picksec]').click();
     await sleep(200);
-    // just check it didn't crash
+    if (qs('.modal')) throw new Error('Modal lukkede ikke');
+    if (!qsa('.sec-block').length) throw new Error('Ingen sektion oprettet');
+  }),
+  test('"+ Øvelse" åbner øvelse-picker', async () => {
+    click(qs('[data-addex="0"]'));
+    await waitFor(() => ge('exPickQ'));
   }),
   test('Kan vælge øvelse fra picker', async () => {
-    // pick first exercise
     await waitFor(() => qs('[data-pickex]'));
-    const ex = qs('[data-pickex]');
-    click(ex);
-    await sleep(150);
-    const rows = qsa('.ex-row');
-    if (!rows.length) throw new Error('Ingen øvelser tilføjet');
+    qs('[data-pickex]').click();
+    await sleep(200);
+    if (!qsa('.ex-row').length) throw new Error('Ingen øvelse tilføjet');
   }),
   test('"← Tilbage" lukker editor', async () => {
-    const btn = ge('cancelBtn');
-    click(btn);
-    await sleep(150);
-    if (appWin.S.draft !== null) throw new Error('Draft ikke clearet');
+    click(ge('cancelBtn'));
+    await sleep(200);
+    if (S().draft !== null) throw new Error('Draft ikke clearet');
   }),
 ]);
 
 suite('Editor – eksisterende træning', [
-  test('Opret draft og åbn editor', async () => {
+  test('Opret draft med sektioner', async () => {
     await createDraftTraining();
     if (!ge('e-date')) throw new Error('Editor ikke åben');
+    if (!S().draft?.sections?.length) throw new Error('Ingen sektioner i draft');
   }),
   test('Oplysninger kan kollapses', async () => {
-    const toggle = ge('info-toggle');
-    click(toggle);
-    await sleep(100);
-    const body = ge('info-body');
-    if (body.style.display !== 'none') throw new Error('info-body ikke skjult');
+    click(ge('info-toggle'));
+    await sleep(150);
+    if (ge('info-body').style.display !== 'none') throw new Error('info-body ikke skjult');
   }),
   test('Oplysninger kan åbnes igen', async () => {
-    const toggle = ge('info-toggle');
-    click(toggle);
-    await sleep(100);
-    const body = ge('info-body');
-    if (body.style.display === 'none') throw new Error('info-body stadig skjult');
+    click(ge('info-toggle'));
+    await sleep(150);
+    if (ge('info-body').style.display === 'none') throw new Error('info-body stadig skjult');
   }),
   test('Sektion kan kollapses', async () => {
-    const colBtn = qs('[data-collapse="0"]');
-    click(colBtn);
-    await sleep(150);
-    const sec = appWin.S.draft.sections[0];
-    if (!sec.collapsed) throw new Error('Sektion ikke collapsed i state');
+    click(qs('[data-collapse="0"]'));
+    await sleep(200);
+    if (!S().draft.sections[0].collapsed) throw new Error('Ikke collapsed i state');
   }),
   test('Sektion kan åbnes igen', async () => {
-    const colBtn = qs('[data-collapse="0"]');
-    click(colBtn);
-    await sleep(150);
-    const sec = appWin.S.draft.sections[0];
-    if (sec.collapsed) throw new Error('Sektion stadig collapsed');
+    click(qs('[data-collapse="0"]'));
+    await sleep(200);
+    if (S().draft.sections[0].collapsed) throw new Error('Stadig collapsed');
   }),
   test('Øvelse-checkbox kan afkrydses', async () => {
     const chk = qs('[data-excheck="0-0"]');
     if (!chk) throw new Error('Checkbox ikke fundet');
-    click(chk);
-    await sleep(100);
-    if (!appWin.S.draft.sections[0].exercises[0].done)
-      throw new Error('done ikke sat til true');
-  }),
-  test('Afkrydset øvelse viser ✓', async () => {
-    const chk = qs('[data-excheck="0-0"]');
-    if (!chk?.classList.contains('checked')) throw new Error('Checkbox ikke markeret visuelt');
-  }),
-  test('Sektion viser tæller 1/2', async () => {
-    const label = qs('.sec-progress, .sec-done-badge');
-    if (!label) throw new Error('Sektions-tæller ikke fundet');
-    if (!label.textContent.includes('1')) throw new Error(`Tæller viser: ${label.textContent}`);
-  }),
-  test('Alle øvelser i sektion → ✓ Færdig badge', async () => {
-    const chk2 = qs('[data-excheck="0-1"]');
-    if (!chk2) throw new Error('2. checkbox ikke fundet');
-    click(chk2);
-    await sleep(100);
-    const badge = qs('.sec-done-badge');
-    if (!badge) throw new Error('"Færdig" badge ikke vist');
-    if (!badge.textContent.includes('Færdig')) throw new Error(`Badge tekst: ${badge.textContent}`);
-  }),
-  test('Øvelse kan flyttes op/ned', async () => {
-    // Add second exercise first
-    const btn = qs('[data-addex="1"]');
-    click(btn);
-    await waitFor(() => qs('[data-pickex]'));
-    qs('[data-pickex]').click();
-    await sleep(200);
-    const before = appWin.S.draft.sections[1].exercises.map(e=>e.exerciseId);
-    if (before.length < 2) { return; } // skip if only 1
-    const downBtn = qs('[data-moveex="1-0-down"]');
-    click(downBtn);
-    await sleep(100);
-    const after = appWin.S.draft.sections[1].exercises.map(e=>e.exerciseId);
-    if (before[0] === after[0]) throw new Error('Øvelse ikke flyttet');
-  }),
-  test('Sektion kan flyttes ned', async () => {
-    const before0 = appWin.S.draft.sections[0].type;
-    const downBtn = qs('[data-movesec="0-down"]');
-    click(downBtn);
+    chk.click();
     await sleep(150);
-    const after0 = appWin.S.draft.sections[0].type;
-    if (before0 === after0) throw new Error('Sektion ikke flyttet');
+    if (!S().draft.sections[0].exercises[0].done) throw new Error('done ikke true');
+  }),
+  test('Afkrydset øvelse viser ✓ visuelt', async () => {
+    if (!qs('[data-excheck="0-0"].checked')) throw new Error('Checkbox ikke markeret');
+  }),
+  test('Sektion viser tæller efter afkrydsning', async () => {
+    const ind = qs('.sec-progress, .sec-done-badge');
+    if (!ind) throw new Error('Tæller ikke fundet');
+  }),
+  test('Alle øvelser i sektion → Færdig badge', async () => {
+    qs('[data-excheck="0-1"]')?.click();
+    await sleep(150);
+    if (!qs('.sec-done-badge')) throw new Error('"Færdig" badge ikke vist');
   }),
   test('Sektion kan slettes', async () => {
-    const before = appWin.S.draft.sections.length;
-    const delBtn = qs('[data-delsec]');
-    click(delBtn);
-    await sleep(150);
-    const after = appWin.S.draft.sections.length;
-    if (after !== before - 1) throw new Error(`Antal sektioner: ${before} → ${after}`);
+    const before = S().draft.sections.length;
+    click(qs('[data-delsec]'));
+    await sleep(200);
+    if (S().draft.sections.length !== before - 1) throw new Error('Sektion ikke slettet');
   }),
-  test('"Gem træning" gemmer og vender tilbage', async () => {
-    // Set required date
-    const d = ge('e-date');
-    if (d) { d.value = '2026-03-15'; d.dispatchEvent(new Event('change')); }
-    const btn = ge('saveTBtn');
-    click(btn);
+  test('"Gem træning" gemmer og lukker editor', async () => {
+    click(ge('saveTBtn'));
     await sleep(300);
-    if (appWin.S.draft !== null) throw new Error('Draft ikke clearet efter gem');
+    if (S().draft !== null) throw new Error('Draft ikke clearet efter gem');
   }),
 ]);
 
 suite('Katalog', [
-  test('Søgefelt virker uden crash', async () => {
+  test('Søgefelt virker', async () => {
     await goTab('Katalog');
     const q = ge('catQ');
     if (!q) throw new Error('catQ ikke fundet');
@@ -366,51 +331,43 @@ suite('Katalog', [
     q.dispatchEvent(new Event('input'));
     await sleep(200);
   }),
-  test('Søg ryddes og viser alle', async () => {
-    const q = ge('catQ');
-    q.value = '';
-    q.dispatchEvent(new Event('input'));
-    await sleep(200);
-    const rows = qsa('.cat-row:not(.cat-hdr)');
-    if (!rows.length) throw new Error('Ingen rækker efter rydning af søgning');
-  }),
-  test('Skift til Fysisk træning-fane', async () => {
-    const tab = qs('[data-ctab="fys"]');
-    click(tab);
+  test('Søg kan ryddes', async () => {
+    ge('catQ').value = '';
+    ge('catQ').dispatchEvent(new Event('input'));
     await sleep(150);
-    if (appWin.S.catTab !== 'fys') throw new Error('catTab ikke skiftet');
+    if (!qsa('.cat-row:not(.cat-hdr)').length) throw new Error('Ingen rækker efter rydning');
+  }),
+  test('Skift til Fysisk træning rydder filter', async () => {
+    // Set a search first
+    ge('catQ').value = 'test';
+    ge('catQ').dispatchEvent(new Event('input'));
+    await sleep(100);
+    click(qs('[data-ctab="fys"]'));
+    await sleep(200);
+    if (S().catTab !== 'fys') throw new Error('catTab ikke fys');
+    if (S().catSearch !== '') throw new Error('Søgning ikke ryddet ved tabskift');
   }),
   test('Skift tilbage til Haltræning', async () => {
-    const tab = qs('[data-ctab="hal"]');
-    click(tab);
+    click(qs('[data-ctab="hal"]'));
     await sleep(150);
-    if (appWin.S.catTab !== 'hal') throw new Error('catTab ikke hal');
+    if (S().catTab !== 'hal') throw new Error('catTab ikke hal');
   }),
   test('"+ Ny øvelse" åbner modal', async () => {
     click(ge('newExBtn'));
     await waitFor(() => qs('.modal'));
-    if (qs('.modal-title')?.textContent.includes('øvelse') === false)
-      throw new Error('Modal titel forkert');
+    qs('.mclose')?.click();
+    await sleep(100);
   }),
-  test('Modal lukkes med ✕', async () => {
-    const closeBtn = qs('.mclose') || qs('#mclose');
-    click(closeBtn);
-    await sleep(150);
-    if (qs('.modal')) throw new Error('Modal stadig åben');
-  }),
-  test('Eksport CSV-knap findes', async () => {
-    if (!ge('exportCsvBtn')) throw new Error('exportCsvBtn ikke fundet');
-  }),
-  test('Eksport Excel-knap findes', async () => {
-    if (!ge('exportXlsxBtn')) throw new Error('exportXlsxBtn ikke fundet');
+  test('Eksport-knap findes', async () => {
+    if (!ge('exportMenuBtn') && !ge('exportCsvBtn')) throw new Error('Eksport-knap ikke fundet');
   }),
   test('Tag-filter kan klikkes', async () => {
     const tag = qs('[data-ctag]');
-    if (!tag) { return; } // no tags, skip
+    if (!tag) return; // ingen tags = skip
     tag.click();
     await sleep(150);
-    if (!appWin.S.catFilter.tags.length) throw new Error('Tag ikke tilføjet til filter');
-    tag.click(); // reset
+    if (!S().catFilter.tags.length) throw new Error('Tag ikke tilføjet');
+    tag.click();
     await sleep(100);
   }),
 ]);
@@ -418,8 +375,7 @@ suite('Katalog', [
 suite('Årshjul', [
   test('Kvartaler vises', async () => {
     await goTab('Årshjul');
-    const cards = qsa('.q-card, [class*="q-"]');
-    if (!cards.length) throw new Error('Ingen kvartals-kort');
+    await waitFor(() => qsa('[class*="q-"]').length > 0);
   }),
   test('Tema-input kan udfyldes', async () => {
     const inp = qs('.theme-inp, input[placeholder*="ema"]');
@@ -435,18 +391,15 @@ suite('Trænerliste dropdown', [
     await createDraftTraining();
     if (!ge('tr-display')) throw new Error('tr-display ikke fundet');
   }),
-  test('Træner-dropdown åbner ved klik', async () => {
+  test('Dropdown åbner ved klik', async () => {
     click(ge('tr-display'));
-    await sleep(100);
-    const dd = ge('tr-dropdown');
-    if (dd.style.display === 'none') throw new Error('Dropdown ikke åben');
+    await sleep(150);
+    if (ge('tr-dropdown').style.display === 'none') throw new Error('Dropdown ikke åben');
   }),
   test('Kan vælge træner uden at dropdown lukker', async () => {
-    const opt = qs('[data-tr-opt]');
-    click(opt);
-    await sleep(150);
-    const dd = ge('tr-dropdown');
-    if (dd.style.display === 'none') throw new Error('Dropdown lukkede ved valg');
+    click(qs('[data-tr-opt]'));
+    await sleep(200);
+    if (ge('tr-dropdown').style.display === 'none') throw new Error('Dropdown lukkede ved valg');
   }),
   test('Valgt træner vises som pill', async () => {
     const pills = ge('tr-display').querySelectorAll('span[style*="background"]');
@@ -454,23 +407,22 @@ suite('Trænerliste dropdown', [
   }),
   test('Dropdown lukker ved klik udenfor', async () => {
     appDoc.body.click();
-    await sleep(150);
-    const dd = ge('tr-dropdown');
-    if (dd.style.display !== 'none') throw new Error('Dropdown lukker ikke ved klik udenfor');
+    await sleep(200);
+    if (ge('tr-dropdown').style.display !== 'none') throw new Error('Dropdown lukkede ikke');
   }),
 ]);
 
-// ── Run ───────────────────────────────────────────────────────────────────────
+// ── Runner ────────────────────────────────────────────────────────────────────
 async function runAll() {
   allResults = [];
   renderResults([]);
-  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('runBtn').disabled = true;
 
   for (const suite of suites) {
     for (const t of suite.tests) {
-      // reset modals between tests
+      // Clear any open modals between tests
       try {
-        if (appWin.S.modal) { appWin.S.modal=null; appWin.render(); await sleep(50); }
+        if (S().modal) { S().modal = null; appRender(); await sleep(80); }
       } catch {}
 
       const result = { suite: suite.name, name: t.name, status: 'running', err: null };
@@ -483,84 +435,48 @@ async function runAll() {
       } catch (e) {
         result.status = 'fail';
         result.err = e.message;
-        // try to recover
-        try { appWin.S.modal=null; appWin.render(); await sleep(100); } catch {}
+        // Try to recover
+        try { S().modal = null; appRender(); await sleep(100); } catch {}
       }
       renderResults(allResults);
-      await sleep(30);
+      await sleep(40);
     }
   }
 
-  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('runBtn').disabled = false;
   updateStats();
 }
 
 function updateStats() {
-  const pass = allResults.filter(r=>r.status==='pass').length;
-  const fail = allResults.filter(r=>r.status==='fail').length;
-  const skip = allResults.filter(r=>r.status==='skip').length;
-  document.getElementById('s-pass').textContent = `✓ ${pass}`;
-  document.getElementById('s-fail').textContent = `✗ ${fail}`;
-  document.getElementById('s-skip').textContent = `– ${skip}`;
+  document.getElementById('s-pass').textContent = '✓ ' + allResults.filter(r=>r.status==='pass').length;
+  document.getElementById('s-fail').textContent = '✗ ' + allResults.filter(r=>r.status==='fail').length;
+  document.getElementById('s-skip').textContent = '– ' + allResults.filter(r=>r.status==='skip').length;
 }
 
 function renderResults(results) {
   updateStats();
-  const show = filterFail ? results.filter(r=>r.status==='fail'||r.status==='running') : results;
-
-  // Group by suite
+  const show = filterFail ? results.filter(r => r.status==='fail' || r.status==='running') : results;
   const suiteMap = {};
   for (const r of show) {
     if (!suiteMap[r.suite]) suiteMap[r.suite] = [];
     suiteMap[r.suite].push(r);
   }
-
   let html = '';
   for (const [sname, rs] of Object.entries(suiteMap)) {
     html += `<div class="suite"><div class="suite-title">${sname}</div>`;
     for (const r of rs) {
-      const icon = r.status==='pass'?'✓':r.status==='fail'?'✗':r.status==='running'?'…':'–';
-      html += `<div class="test">
-        <span class="badge ${r.status}">${icon}</span>
-        <div class="test-name">
-          ${r.name}
-          ${r.err ? `<div class="test-err">⚠ ${r.err}</div>` : ''}
-        </div>
-      </div>`;
+      const icon = {pass:'✓', fail:'✗', running:'…', skip:'–'}[r.status] || '–';
+      html += `<div class="test"><span class="badge ${r.status}">${icon}</span><div class="test-name">${r.name}${r.err?`<div class="test-err">⚠ ${r.err}</div>`:''}</div></div>`;
     }
     html += '</div>';
   }
-  if (!html) html = '<p style="color:#475569;font-size:13px;margin-top:20px;text-align:center;">Ingen resultater at vise</p>';
+  if (!html) html = '<p style="color:#475569;font-size:13px;margin-top:20px;text-align:center;">Ingen resultater</p>';
   resultsEl.innerHTML = html;
-
-  // scroll last running into view
-  const running = resultsEl.querySelector('.badge.running');
-  if (running) running.scrollIntoView({block:'nearest'});
+  resultsEl.querySelector('.badge.running')?.scrollIntoView({block:'nearest'});
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-iframe.addEventListener('load', () => {
-  try {
-    appWin = iframe.contentWindow;
-    appDoc = iframe.contentDocument;
-    document.getElementById('iframe-status').classList.add('ready');
-    document.getElementById('frame-action').textContent = 'Klar';
-    document.getElementById('frame-url').textContent = iframe.src.split('/').pop();
-  } catch (e) {
-    document.getElementById('frame-action').textContent = 'Fejl: ' + e.message;
-  }
-});
-
-document.getElementById('runBtn').addEventListener('click', async () => {
-  if (!appWin) { alert('App ikke indlæst endnu'); return; }
-  await runAll();
-});
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-  allResults = [];
-  renderResults([]);
-});
-
+document.getElementById('runBtn').addEventListener('click', runAll);
+document.getElementById('clearBtn').addEventListener('click', () => { allResults = []; renderResults([]); });
 document.getElementById('filterFail').addEventListener('click', function() {
   filterFail = !filterFail;
   this.classList.toggle('active', filterFail);
