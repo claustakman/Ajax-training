@@ -650,7 +650,7 @@ function html_sec(sec,si) {
         <span style="font-size:13px;font-weight:600;color:var(--text2);">min</span>
       </div>
       <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">${sec.parallel?'Fjern parallel':'Parallel'}</button>
-      <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">+ Øvelse</button>
+      <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
     </div>
     ${collapsed?'':`<div class="sec-block-body" id="sbd-${si}">
