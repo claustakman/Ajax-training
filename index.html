@@ -895,21 +895,22 @@ function bind() {
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
-  on('[data-moveex]', el=>{
+  // moveex uses document-level delegation so it keeps working after DOM-only updates
+  document._moveexBound=document._moveexBound||document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-moveex]');
+    if(!el||!S.draft)return;
     const parts=el.dataset.moveex.split('-');
     const si=+parts[0],ei=+parts[1],dir=parts[2];
-    const exs=S.draft.sections[si].exercises;
+    const exs=S.draft.sections[si]?.exercises;
+    if(!exs)return;
     const target=dir==='up'?ei-1:ei+1;
     if(target<0||target>=exs.length)return;
     [exs[ei],exs[target]]=[exs[target],exs[ei]];
-    // Update only this section's body — no scroll jump
     const body=document.getElementById(`sbd-${si}`);
     if(body){
       body.innerHTML=exs.map((ex,i)=>html_exrow(ex,si,i)).join('')
         +(exs.length?'':'<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>');
-    } else {
-      render();
-    }
+    } else render();
   });
   on('[data-picktag]', el=>{
     if(!S.modal||S.modal.type!=='pickEx') return;
