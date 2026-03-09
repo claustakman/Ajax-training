@@ -148,10 +148,16 @@
 
   /* ── RESPONSIVE ─────────────────────────────────────────── */
   @media (max-width: 640px) {
+    body{font-size:15px}
     .content{padding:12px}
-    .topbar{padding:0 12px;height:48px}
+
+    /* Topbar: taller for easier tapping */
+    .topbar{padding:0 8px;height:52px}
     .topbar-logo .logo-text{display:none}
-    .nav-tab{padding:0 10px;font-size:12px}
+    .topbar-logo{margin-right:6px}
+
+    /* Nav tabs: bigger touch targets */
+    .nav-tab{padding:0 11px;font-size:13px;height:52px;min-width:44px}
     .sync-indicator span{display:none}
 
     /* Editor: stack cards vertically */
@@ -161,12 +167,21 @@
     .aarshjul-grid{grid-template-columns:1fr !important}
 
     /* Theme text truncation fix */
-    .theme-inp{font-size:12px}
+    .theme-inp{font-size:14px}
     .q-num{font-size:24px}
 
-    /* Section header: wrap on small screens */
-    .sec-block-head{flex-wrap:wrap;gap:6px}
-    .sec-label{font-size:12px}
+    /* Section header: wrap on small screens, bigger tap targets */
+    .sec-block-head{flex-wrap:wrap;gap:6px;padding:10px 10px}
+    .sec-label{font-size:13px}
+
+    /* Buttons: minimum 44px touch target height */
+    .btn{min-height:38px;font-size:14px}
+    .btn-sm{min-height:34px;font-size:13px;padding:5px 11px}
+    .btn-xs{min-height:28px;font-size:12px;padding:3px 8px}
+
+    /* Inputs larger on mobile */
+    input,select,textarea{font-size:16px;padding:10px 12px} /* 16px prevents iOS zoom */
+    label{font-size:12px}
 
     /* Catalog table: hide description and stars cols on mobile */
     .cat-row{grid-template-columns:1fr 80px 40px 32px !important}
@@ -175,18 +190,21 @@
     /* Archive table: simplify */
     .arch-tbl .hide-mobile{display:none}
 
-    /* Modal padding */
-    .modal-overlay{padding:12px 8px}
+    /* Modal: full-width, easier to read */
+    .modal-overlay{padding:10px 6px}
     .modal-body{padding:14px}
+    .modal-title{font-size:15px}
 
     /* Training card buttons stack */
     .tcard-actions{flex-direction:column;align-items:stretch}
     .tcard-actions .btn{justify-content:center}
+
+    /* Pills: bigger */
+    .pill{padding:7px 13px;font-size:13px}
   }
 
   @media (max-width: 480px) {
-    .nav-tab{padding:0 8px;font-size:11px;letter-spacing:.04em}
-    .pill{padding:4px 9px;font-size:12px}
+    .nav-tab{padding:0 8px;font-size:12px}
   }
 </style>
 </head>
@@ -387,7 +405,7 @@ const S = {
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
-  draft: null, modal: null,
+  draft: null, draftInfoCollapsed: false, modal: null,
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0},
   archFilter: {stars:0, trainer:'', loc:''},
 };
@@ -570,6 +588,7 @@ function html_tcard(t) {
       <div class="flex-row" style="flex-shrink:0;">
         <button class="btn btn-secondary btn-sm" data-edit="${t.id}">Rediger</button>
         <button class="btn btn-ghost btn-sm" data-arch="${t.id}">Arkivér</button>
+        <button class="btn btn-danger btn-sm" data-deltrain="${t.id}">Slet</button>
       </div>
     </div>
   </div>`;
@@ -586,11 +605,21 @@ function html_editor() {
       <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
       <div class="flex-row" style="margin-left:auto;">
         <button class="btn btn-secondary" id="saveTmplBtn">💾 Skabelon</button>
+        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger" id="delTBtn">Slet</button>`:''}
         <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
       </div>
     </div>
     <div class="grid-2 editor-grid" style="margin-bottom:14px;">
-      <div class="card"><div class="card-header"><span class="card-title">Oplysninger</span></div><div class="card-body">
+      <div class="card"><div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
+        <span class="card-title">Oplysninger</span>
+        <div id="info-summary" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);">
+          <span>${t.date?fmtWday(t.date)+' '+fmtDay(t.date)+' '+fmtMon(t.date):'–'}</span>
+          ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}
+          <span>${t.startTime||''}${t.startTime&&t.endTime?' – ':''}${t.endTime||''}</span>
+        </div>
+        <span class="info-chevron" style="color:var(--text3);font-size:13px;transition:transform .2s;flex-shrink:0;">▾</span>
+      </div>
+      <div id="info-body" class="card-body">
         <div class="form-row" style="grid-template-columns:1fr 1fr 1fr;">
           <div class="form-group"><label>Dato</label><input type="date" id="e-date" value="${t.date||''}"></div>
           <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
@@ -894,9 +923,11 @@ function bind() {
   on('[data-open]',   el=>{if(!event.target.closest('[data-edit],[data-arch]')){const t=S.trainings.find(x=>x.id===el.dataset.open);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}}});
   on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
   on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
+  on('[data-deltrain]',el=>{const id=el.dataset.deltrain;if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==id);scheduleSave('trainings');toast('Træning slettet');render();});
   ge('newTBtn')?.addEventListener('click',()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();});
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
+  ge('delTBtn')?.addEventListener('click',()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();});
   ge('saveTBtn')?.addEventListener('click',saveTraining);
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
