@@ -589,7 +589,7 @@ function html_editor() {
           <div class="form-group"><label>Start</label><input type="time" id="e-start" value="${t.startTime||''}"></div>
           <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
         </div>
-        <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?`<span style="color:var(--red);"> ⚠ ${tot-dur} min over!</span>`:''}</div>
+        <div id="total-mins-display" style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} min over!</span>`:''}</div>
         <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
         <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
         <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
@@ -644,8 +644,11 @@ function html_sec(sec,si) {
       <span style="color:var(--text3);font-size:11px;transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0deg)'};">▾</span>
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
       ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
-      ${collapsed?`<span style="font-size:11px;color:var(--text3);">${exCount} øvelse${exCount!==1?'r':''} · ${sec.mins||0} min</span>`:''}
-      <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="min" data-secmins="${si}" style="width:64px;flex-shrink:0;${collapsed?'display:none;':''}" title="Minutter til denne sektion" onclick="event.stopPropagation()">
+      ${collapsed?`<span style="font-size:13px;color:var(--text2);">${exCount} øvelse${exCount!==1?'r':''}</span><span style="font-size:15px;font-weight:700;color:var(--text);margin-left:6px;">${sec.mins||'–'} <span style="font-size:12px;font-weight:500;color:var(--text2);">min</span></span>`:''}
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;${collapsed?'display:none;':''}" onclick="event.stopPropagation()">
+        <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="–" data-secmins="${si}" style="width:52px;font-size:15px;font-weight:700;text-align:center;padding:4px 6px;" title="Minutter til denne sektion">
+        <span style="font-size:13px;font-weight:600;color:var(--text2);">min</span>
+      </div>
       <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">${sec.parallel?'Fjern parallel':'Parallel'}</button>
       <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
@@ -902,7 +905,7 @@ function bind() {
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
   // Document-level delegation for all section/exercise operations that need DOM-only updates
-  document._secDelegBound=document._secDelegBound||document.addEventListener('click',e=>{
+  if(!document._secDelegBound){document._secDelegBound=true;document.addEventListener('click',e=>{
     // ── movesec ──────────────────────────────────────────────────
     const msEl=e.target.closest('[data-movesec]');
     if(msEl&&S.draft){
@@ -944,7 +947,7 @@ function bind() {
       requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:'instant'}));
       return;
     }
-  });
+  });} // end _secDelegBound
 
   on('[data-picktag]', el=>{
     if(!S.modal||S.modal.type!=='pickEx') return;
@@ -1143,7 +1146,7 @@ function updateTotalMins(){
   const el=document.getElementById('total-mins-display');
   if(el){
     const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
-    el.innerHTML=`Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?'<span style="color:var(--red);"> ⚠ '+( tot-dur)+' min over!</span>':''}`;
+    el.innerHTML=`Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?'<span style="color:var(--red);font-weight:600;"> ⚠ '+(tot-dur)+' min over!</span>':''}`;
   }
 }
 function toast(msg,type='ok'){const c=ge('toastWrap');const d=document.createElement('div');d.className=`toast toast-${type}`;d.textContent=msg;c.appendChild(d);setTimeout(()=>d.remove(),2800);}
