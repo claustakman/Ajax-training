@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Ajax U11 – Træningsplanlægger</title>
+<meta name="version" content="__BUILD_TS__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -467,7 +471,7 @@ function html_topbar() {
       <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
     </div>
     <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
-    <div class="sync-indicator">
+    <div class="sync-indicator" title="Version __BUILD_TS__">
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLbl"></span>
     </div>
