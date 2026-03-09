@@ -637,7 +637,7 @@ function html_sec(sec,si) {
   const exCount=(sec.exercises||[]).length;
   return `<div class="sec-block ${def.cls}" data-si="${si}">
     <div class="sec-block-head" style="cursor:pointer;" data-collapse="${si}">
-      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;" onclick="event.stopPropagation()">
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;">
         <button class="btn btn-ghost btn-xs" style="padding:1px 4px;font-size:10px;line-height:1;${si===0?'opacity:.25;cursor:default;':''}" data-movesec="${si}-up" ${si===0?'disabled':''}>▲</button>
         <button class="btn btn-ghost btn-xs" style="padding:1px 4px;font-size:10px;line-height:1;${si===(S.draft?.sections||[]).length-1?'opacity:.25;cursor:default;':''}" data-movesec="${si}-down" ${si===(S.draft?.sections||[]).length-1?'disabled':''}>▼</button>
       </div>
