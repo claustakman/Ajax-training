@@ -587,8 +587,6 @@ function html_tcard(t) {
       </div>
       <div class="flex-row" style="flex-shrink:0;">
         <button class="btn btn-secondary btn-sm" data-edit="${t.id}">Rediger</button>
-        <button class="btn btn-ghost btn-sm" data-arch="${t.id}">Arkivér</button>
-        <button class="btn btn-danger btn-sm" data-deltrain="${t.id}">Slet</button>
       </div>
     </div>
   </div>`;
@@ -605,7 +603,7 @@ function html_editor() {
       <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
       <div class="flex-row" style="margin-left:auto;">
         <button class="btn btn-secondary" id="saveTmplBtn">💾 Skabelon</button>
-        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger" id="delTBtn">Slet</button>`:''}
+        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost" id="archTBtn">Arkivér</button><button class="btn btn-danger" id="delTBtn">Slet</button>`:''}
         <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
       </div>
     </div>
@@ -927,11 +925,31 @@ function bind() {
   ge('newTBtn')?.addEventListener('click',()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();});
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
+  ge('archTBtn')?.addEventListener('click',()=>{const t=S.trainings.find(x=>x.id===S.draft.id);if(t){t.archived=true;S.draft=null;scheduleSave('trainings');toast('Arkiveret');render();}});
   ge('delTBtn')?.addEventListener('click',()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();});
   ge('saveTBtn')?.addEventListener('click',saveTraining);
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
-  on('[data-tr-opt]', el=>{if(!S.draft)return;const tr=el.dataset.trOpt;if(!S.draft.trainers)S.draft.trainers=[];const i=S.draft.trainers.indexOf(tr);i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);render();});
+  if(!document._trOptBound){document._trOptBound=true;document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-tr-opt]');
+    if(!el||!S.draft)return;
+    const tr=el.dataset.trOpt;
+    if(!S.draft.trainers)S.draft.trainers=[];
+    const i=S.draft.trainers.indexOf(tr);
+    i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);
+    // Update checkbox in dropdown
+    const chk=el.querySelector('span');
+    const sel=S.draft.trainers.includes(tr);
+    if(chk){chk.style.background=sel?'var(--accent)':'transparent';chk.style.borderColor=sel?'var(--accent)':'var(--border2)';chk.textContent=sel?'✓':'';}
+    // Update display pills
+    const disp=ge('tr-display');
+    if(disp){
+      const pills=S.draft.trainers.length===0
+        ?'<span style="color:var(--text3);font-size:13px;">Vælg trænere…</span>'
+        :S.draft.trainers.map(t=>`<span style="background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;">${t}</span>`).join('');
+      disp.innerHTML=pills+'<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>';
+    }
+  });}
   on('[data-etheme]', el=>{if(!S.draft)return;if(!S.draft.themes)S.draft.themes=[];const th=el.dataset.etheme;const i=S.draft.themes.indexOf(th);i>=0?S.draft.themes.splice(i,1):S.draft.themes.push(th);render();});
   on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;render();});
   ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
