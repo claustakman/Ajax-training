@@ -649,7 +649,7 @@ function html_sec(sec,si) {
         <input type="number" class="mins-inp" min="1" max="240" value="${sec.mins||''}" placeholder="–" data-secmins="${si}" style="width:52px;font-size:15px;font-weight:700;text-align:center;padding:4px 6px;" title="Minutter til denne sektion">
         <span style="font-size:13px;font-weight:600;color:var(--text2);">min</span>
       </div>
-      <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}" onclick="event.stopPropagation()">${sec.parallel?'Fjern parallel':'Parallel'}</button>
+      <button class="btn btn-ghost btn-xs" data-par="${si}" style="${collapsed?'display:none;':''}">${sec.parallel?'Fjern parallel':'Parallel'}</button>
       <button class="btn btn-secondary btn-xs" data-addex="${si}" style="${collapsed?'display:none;':''}">+ Øvelse</button>
       <button class="btn btn-danger btn-xs" data-delsec="${si}" onclick="event.stopPropagation()">✕</button>
     </div>
@@ -776,7 +776,7 @@ function html_modal() {
   if(m.type==='import')   return html_m_import();
   if(m.type==='exDetail') return html_m_exdetail(m.ex);
   if(m.type==='custEx')  return html_m_custem(m.si);
-  if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
+  if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
   if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
   return '';
 }
@@ -824,7 +824,7 @@ function html_m_editex(ex) {
     <div class="form-group"><label>Varianter / noter</label><textarea id="ex-v" rows="2">${esc(ex?ex.variants||'':'')}</textarea></div>
     <div class="form-group"><label>Link</label><input type="url" id="ex-l" value="${esc(ex?ex.link||'':'')}"></div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" data-saveex="${ex?ex.id:'new'}">Gem</button></div>`,'modal-sm');
+  <div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" data-saveex="${ex?ex.id:'new'}">Gem</button></div>`,'modal-sm');
 }
 
 function html_m_exdetail(ex) {
@@ -837,7 +837,7 @@ function html_m_exdetail(ex) {
     ${ex.link?`<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Kilde</div><a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);">${esc(ex.link.replace(/^https?:\/\//, '').substring(0,50))}${ex.link.length>53?'…':''} ↗</a></div>`:''}
     ${!ex.description&&!ex.variants&&!ex.link?`<p style="color:var(--text3);font-size:13px;">Ingen yderligere oplysninger for denne øvelse.</p>`:''}
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Luk</button></div>`,'modal-sm');
+  <div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>`,'modal-sm');
 }
 
 function html_m_custem(si) {
@@ -854,7 +854,7 @@ function html_m_custem(si) {
       <div class="form-group"><label>Katalog</label><select id="cex-cat"><option value="hal">Haltræning</option><option value="fys">Fysisk træning</option></select></div>
     </div>
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" data-savecex="${si}">Tilføj</button></div>`,'modal-sm');
+  <div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" data-savecex="${si}">Tilføj</button></div>`,'modal-sm');
 }
 
 function html_m_import() {
@@ -863,7 +863,7 @@ function html_m_import() {
     <div class="drop-zone" id="dropZ"><div style="font-size:28px;margin-bottom:8px;">📄</div><div style="font-weight:600;margin-bottom:4px;">Træk CSV eller Excel fil hertil</div><div style="color:var(--text2);font-size:12px;">eller klik for at vælge</div><input type="file" id="impFile" accept=".csv,.xlsx,.xls" style="display:none;"></div>
     <div style="margin-top:12px;background:var(--bg3);border-radius:5px;padding:10px;font-size:11px;color:var(--text2);"><strong style="color:var(--text);">Kolonner:</strong> navn · beskrivelse · stjerner · tags (semikolon) · varianter · link</div>
     <div id="impStatus" style="margin-top:8px;"></div>
-  </div><div class="modal-footer"><button class="btn btn-ghost" id="mclose">Luk</button></div>`);
+  </div><div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>`);
 }
 
 // ─── BIND ─────────────────────────────────────────────────────────────────────
@@ -1002,12 +1002,14 @@ function bind() {
   on('[data-ctag]',   el=>{const t=el.dataset.ctag;const i=S.catFilter.tags.indexOf(t);i>=0?S.catFilter.tags.splice(i,1):S.catFilter.tags.push(t);render();});
   ge('newExBtn')?.addEventListener('click',()=>{S.modal={type:'newEx'};render();});
   ge('importBtn')?.addEventListener('click',()=>{S.modal={type:'import'};render();});
-  on('[data-exdetail]', el=>{
+  if(!document._exdetailBound){document._exdetailBound=true;document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-exdetail]');
+    if(!el)return;
     const id=el.dataset.exdetail; if(!id) return;
     const all=S.halCatalog.concat(S.fysCatalog);
     const ex=all.find(e=>e.id===id);
-    if(ex){event.stopPropagation();S.modal={type:'exDetail',ex};render();}
-  });
+    if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
+  });}
   on('[data-editex]', el=>{const all=S.halCatalog.concat(S.fysCatalog);const ex=all.find(e=>e.id===el.dataset.editex);if(ex){S.modal={type:'editEx',ex};render();}});
   on('[data-delexcat]',el=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();});
   on('[data-exs]',    el=>{document.querySelectorAll('[data-exs]').forEach((s,i)=>s.classList.toggle('filled',i<+el.dataset.exs));});
@@ -1046,6 +1048,7 @@ function bind() {
   on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
   on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);lsSave('templates',S.templates);render();});
   ge('mclose')?.addEventListener('click',()=>{S.modal=null;render();});
+  document.querySelectorAll('.mclose').forEach(el=>el.addEventListener('click',()=>{S.modal=null;render();}));
   ge('moverlay')?.addEventListener('click',e=>{if(e.target.id==='moverlay'){S.modal=null;render();}});
 }
 
