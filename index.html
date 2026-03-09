@@ -534,7 +534,7 @@ function html_editor() {
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur?`<span style="color:var(--red);"> ⚠ ${tot-dur} min over!</span>`:''}</div>
         <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
         <div class="form-group"><label>Fokuspunkter</label><input id="e-focus" value="${esc(t.focusPoints||'')}" placeholder="Dagens fokus"></div>
-        <div class="form-group"><label>Tema</label><select id="e-theme"><option value="">– Vælg tema –</option>${themes.map(th=>`<option value="${esc(th)}" ${t.theme===th?'selected':''}>${esc(th)}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Temaer</label>${(()=>{const ut=[...new Set(themes)];return ut.length?`<div class="pill-group" style="margin-top:4px;">${ut.map(th=>`<button class="pill btn-sm${(t.themes||[]).includes(th)?' active':''}" data-etheme="${esc(th)}">${esc(th)}</button>`).join('')}</div><p style="font-size:11px;color:var(--text3);margin-top:5px;">${(t.themes||[]).join(' · ')||'Ingen valgt'}</p>`:'<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer – gå til Årshjul</p>'})()}</div>
         <div class="form-group"><label>Vurdering</label><div class="stars" id="e-stars">${[1,2,3,4,5].map(n=>`<span class="star${(t.stars||0)>=n?' filled':''}" data-estr="${n}">★</span>`).join('')}</div></div>
       </div></div>
       <div class="card"><div class="card-header"><span class="card-title">Trænere til stede</span></div><div class="card-body">
@@ -678,6 +678,7 @@ function html_modal() {
   if(m.type==='editEx'||m.type==='newEx') return html_m_editex(m.type==='editEx'?m.ex:null);
   if(m.type==='import')   return html_m_import();
   if(m.type==='exDetail') return html_m_exdetail(m.ex);
+  if(m.type==='custEx')  return html_m_custem(m.si);
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
   if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
   return '';
@@ -685,19 +686,30 @@ function html_modal() {
 function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}">${inner}</div></div>`;}
 function mhead(title){return `<div class="modal-header"><span class="modal-title">${title}</span><button class="btn btn-ghost btn-sm" id="mclose">✕</button></div>`;}
 
+function renderPickList(f, si) {
+  if(f.length===0) return `<div class="empty" style="padding:20px;"><p>Ingen resultater</p></div>`;
+  return f.slice(0,80).map(ex=>`<div class="list-item" style="margin-bottom:5px;" data-pickex="${ex.id}" data-si="${si}">
+    <div class="list-title">${esc(ex.name)}</div>
+    <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+  </div>`).join('')
+  + (f.length>80?`<div style="text-align:center;color:var(--text3);font-size:12px;padding:8px;">Viser 80 af ${f.length}</div>`:'');
+}
+
 function html_m_pickex() {
   const si=S.modal.si, q=(S.modal.q||'').toLowerCase();
+  const tf=S.modal.tags||[];
   const all=S.halCatalog.concat(S.fysCatalog);
-  const f=all.filter(ex=>!q||ex.name.toLowerCase().includes(q)||(ex.tags||[]).some(t=>t.toLowerCase().includes(q))||(ex.category||'').toLowerCase().includes(q));
+  const allTags=[...new Set(all.flatMap(e=>e.tags||[]))].sort();
+  const f=all.filter(ex=>{
+    if(q&&!ex.name.toLowerCase().includes(q)&&!(ex.tags||[]).some(t=>t.toLowerCase().includes(q)))return false;
+    if(tf.length&&!tf.every(t=>(ex.tags||[]).includes(t)))return false;
+    return true;
+  });
   return mwrap(mhead('Vælg øvelse')+`<div class="modal-body">
-    <div class="search-wrap" style="margin-bottom:12px;"><span class="search-ico">🔍</span><input id="exPickQ" value="${esc(S.modal.q||'')}" placeholder="Søg øvelse, tag, kategori…" autofocus></div>
-    <div style="max-height:420px;overflow-y:auto;">
-      ${f.length===0?`<div class="empty" style="padding:20px;"><p>${all.length===0?'Ingen øvelser – importer katalog':'Ingen resultater'}</p></div>`
-        :f.slice(0,60).map(ex=>`<div class="list-item" style="margin-bottom:5px;" data-pickex="${ex.id}" data-si="${si}">
-          <div class="list-title">${esc(ex.name)}</div>
-          <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${ex.category?`<span style="font-size:10px;color:var(--text3);">${esc(ex.category)}</span>`:''}</div>
-        </div>`).join('')}
-      ${f.length>60?`<div style="text-align:center;color:var(--text3);font-size:12px;padding:8px;">Viser 60 af ${f.length} – søg for at filtrere</div>`:''}
+    <div class="search-wrap" style="margin-bottom:8px;"><span class="search-ico">🔍</span><input id="exPickQ" value="${esc(S.modal.q||'')}" placeholder="Søg på navn eller tag…" autofocus></div>
+    <div class="pill-group" style="margin-bottom:10px;" id="exPickTags">${allTags.map(t=>`<button class="pill btn-xs${tf.includes(t)?' active':''}" data-picktag="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <div style="max-height:360px;overflow-y:auto;" id="exPickList">
+      ${all.length===0?`<div class="empty" style="padding:20px;"><p>Ingen øvelser – importer katalog</p></div>`:renderPickList(f,si)}
     </div>
     <hr class="divider"><button class="btn btn-ghost btn-sm" data-custex="${si}">+ Tilføj fri øvelse</button>
   </div>`,'modal-lg');
@@ -731,6 +743,23 @@ function html_m_exdetail(ex) {
   <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Luk</button></div>`,'modal-sm');
 }
 
+function html_m_custem(si) {
+  return mwrap(mhead('Tilføj fri øvelse')+`<div class="modal-body">
+    <div class="form-group"><label>Navn</label><input id="cex-n" placeholder="Øvelsesnavn" autofocus></div>
+    <div class="form-group"><label>Beskrivelse / noter</label><textarea id="cex-d" rows="3" placeholder="Valgfri beskrivelse…"></textarea></div>
+    <hr class="divider">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <input type="checkbox" id="cex-addcat" style="width:auto;">
+      <label for="cex-addcat" style="margin:0;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;">Tilføj også til kataloget</label>
+    </div>
+    <div id="cex-cat-opts" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:5px;border:1px solid var(--border);">
+      <div class="form-group"><label>Tags (kommasepareret)</label><input id="cex-t" placeholder="aflevering, teknik…"></div>
+      <div class="form-group"><label>Katalog</label><select id="cex-cat"><option value="hal">Haltræning</option><option value="fys">Fysisk træning</option></select></div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost" id="mclose">Annuller</button><button class="btn btn-primary" data-savecex="${si}">Tilføj</button></div>`,'modal-sm');
+}
+
 function html_m_import() {
   return mwrap(mhead('Importer øvelseskatalog')+`<div class="modal-body">
     <div class="form-group"><label>Katalog</label><select id="imp-cat"><option value="hal">Haltræning</option><option value="fys">Fysisk træning</option></select></div>
@@ -756,6 +785,7 @@ function bind() {
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;render();});
   on('[data-tr]',     el=>{if(!S.draft)return;const tr=el.dataset.tr;const i=(S.draft.trainers||[]).indexOf(tr);i>=0?S.draft.trainers.splice(i,1):S.draft.trainers.push(tr);render();});
+  on('[data-etheme]', el=>{if(!S.draft)return;if(!S.draft.themes)S.draft.themes=[];const th=el.dataset.etheme;const i=S.draft.themes.indexOf(th);i>=0?S.draft.themes.splice(i,1):S.draft.themes.push(th);render();});
   on('[data-estr]',   el=>{if(!S.draft)return;S.draft.stars=+el.dataset.estr;render();});
   ['e-start','e-end'].forEach(id=>{ge(id)?.addEventListener('change',function(){S.draft[id==='e-start'?'startTime':'endTime']=this.value;render();});});
   live('[data-mkey]', el=>{const[si,ei]=el.dataset.mkey.split('-').map(Number);if(S.draft?.sections[si]?.exercises[ei])S.draft.sections[si].exercises[ei].mins=parseInt(el.value)||0;updateSecMins();});
@@ -763,11 +793,44 @@ function bind() {
   on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
   on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
-  on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:''};render();});
+  on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:'',tags:[]};render();});
   on('[data-pickex]', el=>{S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});S.modal=null;render();});
-  on('[data-custex]', el=>{const n=prompt('Øvelses navn:');if(n){S.draft.sections[+el.dataset.custex].exercises.push({exerciseId:null,customName:n,mins:10});S.modal=null;render();}});
+  on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
-  ge('exPickQ')?.addEventListener('input',function(){S.modal.q=this.value;render();});
+  on('[data-picktag]', el=>{
+    if(!S.modal||S.modal.type!=='pickEx') return;
+    const t=el.dataset.picktag;
+    if(!S.modal.tags) S.modal.tags=[];
+    const i=S.modal.tags.indexOf(t);
+    i>=0?S.modal.tags.splice(i,1):S.modal.tags.push(t);
+    // Update tags UI
+    document.querySelectorAll('[data-picktag]').forEach(b=>b.classList.toggle('active',S.modal.tags.includes(b.dataset.picktag)));
+    // Update list
+    const all=S.halCatalog.concat(S.fysCatalog);
+    const q=(S.modal.q||'').toLowerCase();
+    const tf=S.modal.tags;
+    const f=all.filter(ex=>{
+      if(q&&!ex.name.toLowerCase().includes(q)&&!(ex.tags||[]).some(t=>t.toLowerCase().includes(q)))return false;
+      if(tf.length&&!tf.every(t=>(ex.tags||[]).includes(t)))return false;
+      return true;
+    });
+    const wrap=document.getElementById('exPickList');
+    if(wrap){wrap.innerHTML=renderPickList(f,S.modal.si);bindPickList();}
+  });
+  ge('exPickQ')?.addEventListener('input',function(){
+    S.modal.q=this.value;
+    // Update list without re-rendering (avoids losing focus)
+    const all=S.halCatalog.concat(S.fysCatalog);
+    const q=this.value.toLowerCase();
+    const tf=S.modal.tags||[];
+    const f=all.filter(ex=>{
+      if(q&&!ex.name.toLowerCase().includes(q)&&!(ex.tags||[]).some(t=>t.toLowerCase().includes(q)))return false;
+      if(tf.length&&!tf.every(t=>(ex.tags||[]).includes(t)))return false;
+      return true;
+    });
+    const wrap=document.getElementById('exPickList');
+    if(wrap) wrap.innerHTML=renderPickList(f,S.modal.si);
+  });
   on('[data-ctab]',   el=>{S.catTab=el.dataset.ctab;render();});
   ge('catQ')?.addEventListener('input',function(){S.catSearch=this.value;render();});
   ge('catStar')?.addEventListener('change',function(){S.catFilter.stars=+this.value;render();});
@@ -784,6 +847,29 @@ function bind() {
   on('[data-delexcat]',el=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();});
   on('[data-exs]',    el=>{document.querySelectorAll('[data-exs]').forEach((s,i)=>s.classList.toggle('filled',i<+el.dataset.exs));});
   on('[data-saveex]', el=>saveExercise(el.dataset.saveex));
+  on('[data-savecex]',el=>{
+    const si=+el.dataset.savecex;
+    const n=document.getElementById('cex-n')?.value?.trim();
+    if(!n){toast('Navn mangler','err');return;}
+    const addToCat=document.getElementById('cex-addcat')?.checked;
+    const ex={exerciseId:null,customName:n,mins:10};
+    S.draft.sections[si].exercises.push(ex);
+    if(addToCat){
+      const d=document.getElementById('cex-d')?.value||'';
+      const tags=(document.getElementById('cex-t')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+      const cat=document.getElementById('cex-cat')?.value||'hal';
+      const newEx={id:uid(),name:n,description:d,stars:0,tags,variants:'',link:'',catalog:cat};
+      if(cat==='hal')S.halCatalog.push(newEx);else S.fysCatalog.push(newEx);
+      ex.exerciseId=newEx.id; ex.customName=undefined;
+      scheduleSave(cat);
+      toast(`"${n}" tilføjet til katalog`);
+    }
+    S.modal=null;render();
+  });
+  ge('cex-addcat')?.addEventListener('change',function(){
+    const opts=document.getElementById('cex-cat-opts');
+    if(opts) opts.style.display=this.checked?'block':'none';
+  });
   bindImport();
   ge('archStar')?.addEventListener('change',function(){S.archFilter.stars=+this.value;render();});
   ge('archLoc')?.addEventListener('change',function(){S.archFilter.loc=this.value;render();});
@@ -801,7 +887,7 @@ function bind() {
 function saveTraining() {
   const t=S.draft;
   t.title=v('e-title'); t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
-  t.focusPoints=v('e-focus'); t.theme=v('e-theme'); t.notes=v('e-notes');
+  t.focusPoints=v('e-focus'); t.notes=v('e-notes');
   document.querySelectorAll('[data-mkey]').forEach(inp=>{
     const[si,ei]=inp.dataset.mkey.split('-').map(Number);
     if(t.sections[si]?.exercises[ei])t.sections[si].exercises[ei].mins=parseInt(inp.value)||0;
@@ -825,6 +911,10 @@ function saveExercise(exId) {
   if(idx>=0)arr[idx]=ex;else arr.push(ex);
   scheduleSave(catalog);
   toast('Øvelse gemt ✓');S.modal=null;render();
+}
+
+function bindPickList() {
+  on('[data-pickex]', el=>{S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});S.modal=null;render();});
 }
 
 function bindImport() {
