@@ -623,12 +623,24 @@ function html_editor() {
   </div>`;
 }
 
+function renderSecs() {
+  const wrap = document.getElementById('secs-wrap');
+  if (!wrap || !S.draft) return;
+  const secs = S.draft.sections || [];
+  wrap.innerHTML = secs.map((s,si) => html_sec(s,si)).join('')
+    + (!secs.length ? '<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik &quot;+ Tilføj sektion&quot;</p></div>' : '');
+}
+
 function html_sec(sec,si) {
   const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
   const collapsed=sec.collapsed||false;
   const exCount=(sec.exercises||[]).length;
   return `<div class="sec-block ${def.cls}" data-si="${si}">
     <div class="sec-block-head" style="cursor:pointer;" data-collapse="${si}">
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-xs" style="padding:1px 4px;font-size:10px;line-height:1;${si===0?'opacity:.25;cursor:default;':''}" data-movesec="${si}-up" ${si===0?'disabled':''}>▲</button>
+        <button class="btn btn-ghost btn-xs" style="padding:1px 4px;font-size:10px;line-height:1;${si===(S.draft?.sections||[]).length-1?'opacity:.25;cursor:default;':''}" data-movesec="${si}-down" ${si===(S.draft?.sections||[]).length-1?'disabled':''}>▼</button>
+      </div>
       <span style="color:var(--text3);font-size:11px;transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0deg)'};">▾</span>
       <span class="sec-label" style="color:${def.color};">${def.label}</span>
       ${sec.parallel?`<span class="parallel-badge">⇔ Parallel</span>`:''}
@@ -883,35 +895,57 @@ function bind() {
   ge('addSecBtn')?.addEventListener('click',()=>{S.modal={type:'addSec'};render();});
   on('[data-picksec]',el=>{if(!S.draft.sections)S.draft.sections=[];S.draft.sections.push({type:el.dataset.picksec,parallel:false,exercises:[]});S.modal=null;render();});
   on('[data-delsec]', el=>{S.draft.sections.splice(+el.dataset.delsec,1);render();});
-  on('[data-collapse]', el=>{
-    const si=+el.dataset.collapse;
-    if(S.draft?.sections[si]!=null){
-      S.draft.sections[si].collapsed=!S.draft.sections[si].collapsed;
-      render();
-    }
-  });
+  // collapse handled by document delegation
   on('[data-par]',    el=>{const s=S.draft.sections[+el.dataset.par];if(s){s.parallel=!s.parallel;render();}});
-  on('[data-addex]',  el=>{S.modal={type:'pickEx',si:+el.dataset.addex,q:'',tags:[]};render();});
+  // addex handled by document delegation
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
   on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);render();});
-  // moveex uses document-level delegation so it keeps working after DOM-only updates
-  document._moveexBound=document._moveexBound||document.addEventListener('click',e=>{
-    const el=e.target.closest('[data-moveex]');
-    if(!el||!S.draft)return;
-    const parts=el.dataset.moveex.split('-');
-    const si=+parts[0],ei=+parts[1],dir=parts[2];
-    const exs=S.draft.sections[si]?.exercises;
-    if(!exs)return;
-    const target=dir==='up'?ei-1:ei+1;
-    if(target<0||target>=exs.length)return;
-    [exs[ei],exs[target]]=[exs[target],exs[ei]];
-    const body=document.getElementById(`sbd-${si}`);
-    if(body){
-      body.innerHTML=exs.map((ex,i)=>html_exrow(ex,si,i)).join('')
-        +(exs.length?'':'<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>');
-    } else render();
+  // Document-level delegation for all section/exercise operations that need DOM-only updates
+  document._secDelegBound=document._secDelegBound||document.addEventListener('click',e=>{
+    // ── movesec ──────────────────────────────────────────────────
+    const msEl=e.target.closest('[data-movesec]');
+    if(msEl&&S.draft){
+      e.stopPropagation();
+      const [si,dir]=msEl.dataset.movesec.split('-');
+      const secs=S.draft.sections, i=+si, t=dir==='up'?i-1:i+1;
+      if(t>=0&&t<secs.length){[secs[i],secs[t]]=[secs[t],secs[i]];renderSecs();}
+      return;
+    }
+    // ── collapse ─────────────────────────────────────────────────
+    const colEl=e.target.closest('[data-collapse]');
+    if(colEl&&S.draft&&!e.target.closest('[data-movesec],[data-addex],[data-delsec],[data-par],[data-secmins]')){
+      const si=+colEl.dataset.collapse;
+      if(S.draft.sections[si]!=null){S.draft.sections[si].collapsed=!S.draft.sections[si].collapsed;renderSecs();}
+      return;
+    }
+    // ── moveex ───────────────────────────────────────────────────
+    const mxEl=e.target.closest('[data-moveex]');
+    if(mxEl&&S.draft){
+      const parts=mxEl.dataset.moveex.split('-');
+      const si=+parts[0],ei=+parts[1],dir=parts[2];
+      const exs=S.draft.sections[si]?.exercises;
+      if(!exs)return;
+      const target=dir==='up'?ei-1:ei+1;
+      if(target<0||target>=exs.length)return;
+      [exs[ei],exs[target]]=[exs[target],exs[ei]];
+      const body=document.getElementById(`sbd-${si}`);
+      if(body) body.innerHTML=exs.map((ex,i)=>html_exrow(ex,si,i)).join('')+(exs.length?'':'<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>');
+      else renderSecs();
+      return;
+    }
+    // ── addex (add exercise — preserve scroll) ───────────────────
+    const axEl=e.target.closest('[data-addex]');
+    if(axEl&&S.draft){
+      e.stopPropagation();
+      const scrollY=window.scrollY;
+      S.modal={type:'pickEx',si:+axEl.dataset.addex,q:'',tags:[]};
+      render();
+      requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:'instant'}));
+      return;
+    }
   });
+
   on('[data-picktag]', el=>{
     if(!S.modal||S.modal.type!=='pickEx') return;
     const t=el.dataset.picktag;
