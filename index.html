@@ -415,7 +415,7 @@ const S = {
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
-  draft: null, draftInfoCollapsed: false, modal: null,
+  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false,
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true,
   archFilter: {stars:0, trainer:'', loc:''},
 };
@@ -517,6 +517,7 @@ function html_topbar() {
       <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
     </div>
     <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
+    <button id="unlockBtn" class="btn btn-ghost btn-xs" style="margin-left:12px;font-size:12px;" title="${S.unlocked?'Lås igen':'Lås op for redigering'}">${S.unlocked?'🔓':'🔒'}</button>
     <div class="sync-indicator" title="Version __BUILD_TS__">
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLbl"></span>
@@ -591,7 +592,8 @@ function html_tcard(t) {
         <div class="list-meta" style="margin-bottom:5px;">
           <span>${t.startTime||'–'} – ${t.endTime||'–'} <span style="background:var(--bg4);padding:1px 6px;border-radius:3px;font-size:11px;">${dur} min</span></span>
           ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">📍 ${t.location}</span>`:''}
-          ${(t.trainers||[]).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;">${tr}</span>`).join('')}
+          ${t.leadTrainer?`<span style="background:rgba(200,16,46,.18);border:1px solid rgba(200,16,46,.35);color:#fca5a5;padding:1px 6px;border-radius:3px;font-size:11px;">★ ${t.leadTrainer}</span>`:''}
+          ${(t.trainers||[]).filter(tr=>tr!==t.leadTrainer).map(tr=>`<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd;padding:1px 6px;border-radius:3px;font-size:11px;">${tr}</span>`).join('')}
         </div>
         ${t.focusPoints?`<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">🎯 ${esc(t.focusPoints)}</div>`:''}
         <div class="flex-between">
@@ -623,7 +625,7 @@ function html_editor() {
       </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
+      <div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;lsSave('infoCollapsed',S.draftInfoCollapsed);document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
         <span class="card-title">Oplysninger & trænere</span>
         <div id="info-summary" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);">
           <span>${t.date?fmtWday(t.date)+' '+fmtDay(t.date)+' '+fmtMon(t.date):'–'}</span>
@@ -647,6 +649,13 @@ function html_editor() {
             </div>
             <div id="total-mins-display" style="font-size:14px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">Varighed: <strong style="font-size:16px;">${dur>0?dur+' min':'–'}</strong> &nbsp;·&nbsp; Planlagt: <strong class="${mc}" style="font-size:16px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} over</span>`:''}</div>
             <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
+            <div class="form-group">
+              <label>Ansvarlig træner</label>
+              <select id="e-lead" style="margin-bottom:10px;">
+                <option value="">– Vælg –</option>
+                ${TRAINERS.map(tr=>`<option value="${tr}" ${t.leadTrainer===tr?'selected':''}>${tr}</option>`).join('')}
+              </select>
+            </div>
             <div class="form-group">
               <label>Trænere til stede</label>
               <div style="position:relative;">
@@ -953,6 +962,13 @@ document.addEventListener('click', e=>{
   }
 });
 
+function requireUnlock(action) {
+  if (S.unlocked) { action(); return; }
+  const pw = prompt('Indtast kodeord:');
+  if (pw === null) return;
+  if (pw.trim() === 'Ajax 321') { S.unlocked = true; render(); action(); }
+  else { toast('Forkert kodeord', 'err'); }
+}
 function bind() {
   on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
   ge('aarshjulLockBtn')?.addEventListener('click',()=>{S.aarshjulLocked=!S.aarshjulLocked;render();});
@@ -963,15 +979,33 @@ function bind() {
   on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
   on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
   on('[data-deltrain]',el=>{const id=el.dataset.deltrain;if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==id);scheduleSave('trainings');toast('Træning slettet');render();});
-  ge('newTBtn')?.addEventListener('click',()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();});
+  ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
+  ge('unlockBtn')?.addEventListener('click',()=>{
+    if(S.unlocked){S.unlocked=false;render();toast('Låst igen');}
+    else requireUnlock(()=>{toast('Låst op ✓');});
+  });
   ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
-  ge('archTBtn')?.addEventListener('click',()=>{const t=S.trainings.find(x=>x.id===S.draft.id);if(t){t.archived=true;S.draft=null;scheduleSave('trainings');toast('Arkiveret');render();}});
-  ge('delTBtn')?.addEventListener('click',()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();});
-  ge('saveTBtn')?.addEventListener('click',saveTraining);
+  ge('archTBtn')?.addEventListener('click',()=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===S.draft.id);if(t){t.archived=true;S.draft=null;scheduleSave('trainings');toast('Arkiveret');render();}}));
+  ge('delTBtn')?.addEventListener('click',()=>requireUnlock(()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();}));
+  ge('saveTBtn')?.addEventListener('click',()=>requireUnlock(saveTraining));
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;
     document.querySelectorAll('[data-loc]').forEach(p=>p.classList.toggle('active',p.dataset.loc===S.draft.location));
+  });
+  ge('e-lead')?.addEventListener('change',function(){
+    if(!S.draft) return;
+    S.draft.leadTrainer = this.value;
+    if(this.value && !(S.draft.trainers||[]).includes(this.value)){
+      if(!S.draft.trainers) S.draft.trainers=[];
+      S.draft.trainers.push(this.value);
+      // refresh tr-display
+      const disp=ge('tr-display');
+      if(disp){
+        const pills=S.draft.trainers.map(tr=>`<span style="background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.35);color:#93c5fd;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;">${tr}</span>`).join('');
+        disp.innerHTML=pills+'<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;">▾</span>';
+      }
+    }
   });
   if(!document._trOptBound){document._trOptBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-tr-opt]');
@@ -1148,8 +1182,8 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   });
   ge('catStar')?.addEventListener('change',function(){S.catFilter.stars=+this.value;render();});
   on('[data-ctag]',   el=>{const t=el.dataset.ctag;const i=S.catFilter.tags.indexOf(t);i>=0?S.catFilter.tags.splice(i,1):S.catFilter.tags.push(t);render();});
-  ge('newExBtn')?.addEventListener('click',()=>{S.modal={type:'newEx'};render();});
-  ge('importBtn')?.addEventListener('click',()=>{S.modal={type:'import'};render();});
+  ge('newExBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'newEx'};render();}));
+  ge('importBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'import'};render();}));
   // Export menu — document delegation so it works after render
   if(!document._exportMenuBound){document._exportMenuBound=true;
     document.addEventListener('click',e=>{
@@ -1169,9 +1203,9 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
   });}
   on('[data-editex]', el=>{const all=S.halCatalog.concat(S.fysCatalog);const ex=all.find(e=>e.id===el.dataset.editex);if(ex){S.modal={type:'editEx',ex};render();}});
-  on('[data-delexcat]',el=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();});
+  on('[data-delexcat]',el=>requireUnlock(()=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();}));
   on('[data-exs]',    el=>{document.querySelectorAll('[data-exs]').forEach((s,i)=>s.classList.toggle('filled',i<+el.dataset.exs));});
-  on('[data-saveex]', el=>saveExercise(el.dataset.saveex));
+  on('[data-saveex]', el=>requireUnlock(()=>saveExercise(el.dataset.saveex)));
   on('[data-savecex]',el=>{
     const si=+el.dataset.savecex;
     const n=document.getElementById('cex-n')?.value?.trim();
@@ -1200,8 +1234,8 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   ge('archLoc')?.addEventListener('change',function(){S.archFilter.loc=this.value;render();});
   ge('archTr')?.addEventListener('change',function(){S.archFilter.trainer=this.value;render();});
   on('[data-clone]',  el=>{const t=S.trainings.find(x=>x.id===el.dataset.clone);if(!t)return;const c=JSON.parse(JSON.stringify(t));c.id=uid();c.archived=false;c.date='';c.stars=0;c.title=(c.title||'Træning')+' (kopi)';S.draft=c;S.tab='traening';render();});
-  on('[data-restore]',el=>{const t=S.trainings.find(x=>x.id===el.dataset.restore);if(t){t.archived=false;scheduleSave('trainings');toast('Genskabt');render();}});
-  on('[data-deltrain]',el=>{if(confirm('Slet permanent?')){S.trainings=S.trainings.filter(x=>x.id!==el.dataset.deltrain);scheduleSave('trainings');render();}});
+  on('[data-restore]',el=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===el.dataset.restore);if(t){t.archived=false;scheduleSave('trainings');toast('Genskabt');render();}}));
+  on('[data-deltrain]',el=>requireUnlock(()=>{if(confirm('Slet permanent?')){S.trainings=S.trainings.filter(x=>x.id!==el.dataset.deltrain);scheduleSave('trainings');render();}}));
   ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});lsSave('templates',S.templates);toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
   on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
   on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);lsSave('templates',S.templates);render();});
@@ -1212,7 +1246,7 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
 
 function saveTraining() {
   const t=S.draft;
-  t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end');
+  t.date=v('e-date'); t.startTime=v('e-start'); t.endTime=v('e-end'); t.leadTrainer=v('e-lead')||'';
   t.title=trainingLabel(t);
   t.focusPoints=v('e-focus'); t.notes=v('e-notes');
   document.querySelectorAll('[data-secmins]').forEach(inp=>{
