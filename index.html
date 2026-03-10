@@ -416,7 +416,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: false, modal: null,
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0},
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true,
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -526,24 +526,29 @@ function html_topbar() {
 
 // ─── ÅRSHJUL ──────────────────────────────────────────────────────────────────
 function html_aarshjul_tab() {
+  const locked = S.aarshjulLocked;
   return `<div style="max-width:860px;margin:0 auto;">
     <div class="flex-between" style="margin-bottom:20px;">
       <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ÅRSHJUL</h1>
       <p style="color:var(--text2);font-size:12px;margin-top:2px;">Sæson 2025/26 · 1. maj – 30. april</p></div>
+      <button id="aarshjulLockBtn" class="btn ${locked?'btn-ghost':'btn-secondary'}" title="${locked?'Lås op for redigering':'Lås årshjul'}">
+        ${locked?'🔒 Låst':'🔓 Ulåst'}
+      </button>
     </div>
+    ${locked?`<div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:6px;padding:8px 14px;font-size:12px;color:#fbbf24;margin-bottom:16px;">🔒 Årshjul er låst – klik "Låst" øverst for at redigere</div>`:''}
     <div class="grid-2 aarshjul-grid">${S.quarters.map((q,qi)=>`
       <div class="q-card">
         <div class="q-head" style="background:${q.color}18;border-bottom:2px solid ${q.color}20;">
           <span class="q-num" style="color:${q.color};">${q.label}</span>
           <div><div style="font-size:14px;font-weight:600;">${q.months}</div><div style="font-size:11px;color:var(--text2);">${q.season}</div></div>
-          <button class="btn btn-ghost btn-xs" style="margin-left:auto;" data-qadd="${qi}">+ Tema</button>
+          ${locked?'':`<button class="btn btn-ghost btn-xs" style="margin-left:auto;" data-qadd="${qi}">+ Tema</button>`}
         </div>
         <div class="q-body">
           ${(q.themes||[]).map((t,ti)=>`
             <div class="theme-row">
               <span style="color:${q.color};font-size:14px;flex-shrink:0;">◆</span>
-              <input class="theme-inp" value="${esc(t)}" placeholder="Tema…" data-qt="${qi}-${ti}">
-              <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;flex-shrink:0;" data-qdel="${qi}-${ti}">✕</button>
+              <input class="theme-inp" value="${esc(t)}" placeholder="Tema…" data-qt="${qi}-${ti}" ${locked?'readonly style="pointer-events:none;opacity:.7;"':''}>
+              ${locked?'':`<button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;flex-shrink:0;" data-qdel="${qi}-${ti}">✕</button>`}
             </div>`).join('')}
           ${!(q.themes||[]).length?`<p style="color:var(--text3);font-size:12px;text-align:center;padding:10px;">Ingen temaer</p>`:''}
         </div>
@@ -950,9 +955,10 @@ document.addEventListener('click', e=>{
 
 function bind() {
   on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
+  ge('aarshjulLockBtn')?.addEventListener('click',()=>{S.aarshjulLocked=!S.aarshjulLocked;render();});
   on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
   on('[data-qdel]',   el=>{const[qi,ti]=el.dataset.qdel.split('-').map(Number);S.quarters[qi].themes.splice(ti,1);scheduleSave('quarters');render();});
-  live('[data-qt]',   el=>{const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
+  live('[data-qt]',   el=>{if(S.aarshjulLocked)return;const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
   on('[data-open]',   el=>{if(!event.target.closest('[data-edit],[data-arch]')){const t=S.trainings.find(x=>x.id===el.dataset.open);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}}});
   on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
   on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
