@@ -904,7 +904,11 @@ function html_m_pickex() {
 function html_m_editex(ex) {
   return mwrap(mhead(ex?'Rediger øvelse':'Ny øvelse')+`<div class="modal-body">
     <div class="form-group"><label>Navn</label><input id="ex-n" value="${esc(ex?ex.name:'')}" placeholder="Øvelsesnavn"></div>
-    <div class="form-group"><label>Beskrivelse</label><textarea id="ex-d" style="min-height:90px;max-height:260px;resize:vertical;overflow-y:auto;">${esc(ex?ex.description||'':'')}</textarea></div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>Beskrivelse</span><button type="button" id="ai-gen-btn" class="btn btn-ghost btn-xs" style="font-size:11px;padding:2px 8px;border-color:var(--purple);color:var(--purple);flex-shrink:0;">✨ Generer med AI</button></label>
+      <textarea id="ex-d" style="min-height:90px;max-height:260px;resize:vertical;overflow-y:auto;">${esc(ex?ex.description||'':'')}</textarea>
+      <div id="ai-gen-status" style="display:none;font-size:11px;color:var(--text2);margin-top:4px;"></div>
+    </div>
     <div class="grid-2">
       <div class="form-group"><label>Vurdering</label><div class="stars" id="ex-stars">${[1,2,3,4,5].map(n=>`<span class="star${ex&&(ex.stars||0)>=n?' filled':''}" data-exs="${n}">★</span>`).join('')}</div></div>
       <div class="form-group"><label>Katalog</label><select id="ex-cat"><option value="hal" ${!ex||ex.catalog==='hal'?'selected':''}>Haltræning</option><option value="fys" ${ex&&ex.catalog==='fys'?'selected':''}>Fysisk træning</option></select></div>
@@ -932,7 +936,11 @@ function html_m_exdetail(ex) {
 function html_m_custem(si) {
   return mwrap(mhead('Tilføj fri øvelse')+`<div class="modal-body">
     <div class="form-group"><label>Navn</label><input id="cex-n" placeholder="Øvelsesnavn" autofocus></div>
-    <div class="form-group"><label>Beskrivelse / noter</label><textarea id="cex-d" rows="3" placeholder="Valgfri beskrivelse…"></textarea></div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>Beskrivelse / noter</span><button type="button" id="ai-gen-btn" class="btn btn-ghost btn-xs" style="font-size:11px;padding:2px 8px;border-color:var(--purple);color:var(--purple);flex-shrink:0;">✨ Generer med AI</button></label>
+      <textarea id="cex-d" rows="3" placeholder="Valgfri beskrivelse…"></textarea>
+      <div id="ai-gen-status" style="display:none;font-size:11px;color:var(--text2);margin-top:4px;"></div>
+    </div>
     <hr class="divider">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
       <input type="checkbox" id="cex-addcat" style="width:auto;">
@@ -953,6 +961,63 @@ function html_m_import() {
     <div style="margin-top:12px;background:var(--bg3);border-radius:5px;padding:10px;font-size:11px;color:var(--text2);"><strong style="color:var(--text);">Kolonner:</strong> navn · beskrivelse · stjerner · tags (semikolon) · varianter · link</div>
     <div id="impStatus" style="margin-top:8px;"></div>
   </div><div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>`);
+}
+
+
+// ─── AI BESKRIVELSE ───────────────────────────────────────────────────────────
+async function generateAIDescription() {
+  const nameEl = document.getElementById('ex-n') || document.getElementById('cex-n');
+  const descEl = document.getElementById('ex-d') || document.getElementById('cex-d');
+  const tagsEl = document.getElementById('ex-t');
+  const statusEl = document.getElementById('ai-gen-status');
+  const btn = document.getElementById('ai-gen-btn');
+
+  const name = nameEl?.value?.trim();
+  if (!name) { toast('Skriv et øvelsesnavn først', 'err'); return; }
+
+  const tags = tagsEl?.value?.trim() || '';
+  const existing = descEl?.value?.trim() || '';
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Genererer…';
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Henter beskrivelse fra AI…'; }
+
+  try {
+    const prompt = `Du er håndboldtræner for U11 (10-11 årige). Skriv en kort, præcis beskrivelse af håndboldøvelsen "${name}"${tags ? ` (tags: ${tags})` : ''}${existing ? ` Eksisterende beskrivelse til inspiration: "${existing}"` : ''}.
+
+Krav:
+- 2-4 sætninger på dansk
+- Beskriv hvad spillerne gør konkret
+- Nævn hvad øvelsen træner
+- Passende til U11-niveau
+- Ingen overskrift, kun selve beskrivelsen`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) throw new Error('API fejl: ' + response.status);
+    const data = await response.json();
+    const text = data.content?.find(b => b.type === 'text')?.text?.trim();
+    if (!text) throw new Error('Tomt svar');
+
+    if (descEl) descEl.value = text;
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = 'var(--green)'; statusEl.textContent = '✓ Beskrivelse genereret – tilpas efter behov'; }
+    toast('Beskrivelse genereret ✨');
+  } catch (err) {
+    console.error(err);
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = 'var(--red)'; statusEl.textContent = 'Kunne ikke generere beskrivelse. Prøv igen.'; }
+    toast('AI fejlede – prøv igen', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ Generer med AI';
+  }
 }
 
 // ─── BIND ─────────────────────────────────────────────────────────────────────
@@ -1258,6 +1323,10 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     if(opts) opts.style.display=this.checked?'block':'none';
   });
   bindImport();
+  // AI generate button (modal re-renders each time, so bind via document delegation)
+  if(!document._aigenBound){document._aigenBound=true;document.addEventListener('click',e=>{
+    if(e.target.closest('#ai-gen-btn')){e.stopPropagation();generateAIDescription();}
+  });}
   ge('archStar')?.addEventListener('change',function(){S.archFilter.stars=+this.value;render();});
   ge('archLoc')?.addEventListener('change',function(){S.archFilter.loc=this.value;render();});
   ge('archTr')?.addEventListener('change',function(){S.archFilter.trainer=this.value;render();});
