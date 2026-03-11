@@ -418,7 +418,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false,
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true,
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -523,9 +523,16 @@ function html_topbar() {
 function html_aarshjul_tab() {
   const locked = S.aarshjulLocked;
   return `<div style="max-width:860px;margin:0 auto;">
-    <div class="flex-between" style="margin-bottom:20px;">
-      <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ÅRSHJUL</h1>
-      <p style="color:var(--text2);font-size:12px;margin-top:2px;">Sæson 2025/26 · 1. maj – 30. april</p></div>
+    <div class="flex-between" style="margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">ÅRSHJUL</h1>
+          <div style="display:flex;gap:6px;">
+            ${['U9','U11','U13','U15','U17','U19'].map(ag=>`<button class="btn btn-xs ${S.ageGroup===ag?'btn-secondary':'btn-ghost'}" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.05em;" data-agegroup="${ag}">${ag}</button>`).join('')}
+          </div>
+        </div>
+        <p style="color:var(--text2);font-size:12px;margin-top:4px;">Sæson 2025/26 · 1. maj – 30. april · <span style="color:var(--accent);font-weight:600;">${S.ageGroup}</span></p>
+      </div>
       <button id="aarshjulLockBtn" class="btn ${locked?'btn-ghost':'btn-secondary'}" title="${locked?'Lås op for redigering':'Lås årshjul'}">
         ${locked?'🔒 Låst':'🔓 Ulåst'}
       </button>
@@ -983,16 +990,19 @@ async function generateAIDescription() {
   if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Henter beskrivelse fra AI…'; }
 
   try {
-    const prompt = `Du er håndboldtræner for U11 (10-11 årige). Skriv en kort, præcis beskrivelse af håndboldøvelsen "${name}"${tags ? ` (tags: ${tags})` : ''}${existing ? ` Eksisterende beskrivelse til inspiration: "${existing}"` : ''}.
+    const ag = S.ageGroup || 'U11';
+  const ageMap = {'U9':'8-9','U11':'10-11','U13':'12-13','U15':'14-15','U17':'16-17','U19':'18-19'};
+  const ageLbl = ageMap[ag] || '10-11';
+  const prompt = `Du er håndboldtræner for ${ag} (${ageLbl} årige). Skriv en kort, præcis beskrivelse af håndboldøvelsen "${name}"${tags ? ` (tags: ${tags})` : ''}${existing ? ` Eksisterende beskrivelse til inspiration: "${existing}"` : ''}.
 
 Krav:
 - 2-4 sætninger på dansk
 - Beskriv hvad spillerne gør konkret
 - Nævn hvad øvelsen træner
-- Passende til U11-niveau
+- Passende til ${ag}-niveau (${ageLbl} årige)
 - Ingen overskrift, kun selve beskrivelsen`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://ajax-ai-proxy.claus-takman.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1040,6 +1050,12 @@ function requireUnlock(action) {
 function bind() {
   on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
   ge('aarshjulLockBtn')?.addEventListener('click',()=>{S.aarshjulLocked=!S.aarshjulLocked;render();});
+  on('[data-agegroup]', el=>{
+    S.ageGroup = el.dataset.agegroup;
+    lsSave('ageGroup', S.ageGroup);
+    render();
+  });
+  on('[data-agegroup]', el=>{S.ageGroup=el.dataset.agegroup;lsSave('ageGroup',S.ageGroup);render();});
   on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
   on('[data-qdel]',   el=>{const[qi,ti]=el.dataset.qdel.split('-').map(Number);S.quarters[qi].themes.splice(ti,1);scheduleSave('quarters');render();});
   live('[data-qt]',   el=>{if(S.aarshjulLocked)return;const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
