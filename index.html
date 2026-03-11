@@ -417,7 +417,7 @@ const S = {
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
-  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false,
+  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false, tipDismissed: lsLoad('tipDismissed', false),
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'),
   archFilter: {stars:0, trainer:'', loc:''},
 };
@@ -511,7 +511,9 @@ function html_topbar() {
       <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
     </div>
     <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
-    <button id="unlockBtn" class="btn btn-ghost btn-xs" style="margin-left:12px;font-size:12px;" title="${S.unlocked?'Lås igen':'Lås op for redigering'}">${S.unlocked?'🔓':'🔒'}</button>
+    <button id="unlockBtn" class="btn ${S.unlocked?'btn-secondary':'btn-ghost'} btn-xs" style="margin-left:12px;font-size:12px;gap:5px;display:flex;align-items:center;" title="${S.unlocked?'Lås igen':'Lås op for redigering'}">
+      ${S.unlocked?'🔓 Ulåst':'🔒 Låst'}
+    </button>
     <div class="sync-indicator" title="Version __BUILD_TS__">
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLbl"></span>
@@ -563,7 +565,17 @@ function html_aarshjul_tab() {
 function html_traening_tab() {
   if (S.draft) return html_editor();
   const upcoming = S.trainings.filter(t=>!t.archived).sort((a,b)=>{if(!a.date&&!b.date)return 0;if(!a.date)return 1;if(!b.date)return -1;return a.date>b.date?1:-1;});
+  const tip = !S.tipDismissed && !S.unlocked ? `
+    <div id="unlock-tip" style="background:rgba(200,16,46,0.08);border:1px solid rgba(200,16,46,0.25);border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:22px;flex-shrink:0;">🔒</span>
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px;">Appen er låst</div>
+        <div style="font-size:12px;color:var(--text2);">Klik på <strong style="color:var(--text);">🔒 Låst</strong> øverst til højre for at redigere træninger, katalog og årshjul. Kodeord: <strong style="color:var(--text);">Ajax321</strong></div>
+      </div>
+      <button id="tipDismissBtn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px;" title="Luk">×</button>
+    </div>` : '';
   return `<div style="max-width:960px;margin:0 auto;">
+    ${tip}
     <div class="flex-between" style="margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">TRÆNINGER</h1>
       <p style="color:var(--text2);font-size:12px;margin-top:2px;">${upcoming.length} kommende</p></div>
@@ -1006,7 +1018,7 @@ Krav:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -1065,6 +1077,8 @@ function bind() {
   on('[data-deltrain]',el=>{const id=el.dataset.deltrain;if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==id);scheduleSave('trainings');toast('Træning slettet');render();});
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
+  ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
+  ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
   ge('unlockBtn')?.addEventListener('click',()=>{
     if(S.unlocked){S.unlocked=false;render();toast('Låst igen');}
     else requireUnlock(()=>{toast('Låst op ✓');});
