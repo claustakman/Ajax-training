@@ -570,7 +570,7 @@ function html_traening_tab() {
       <span style="font-size:22px;flex-shrink:0;">🔒</span>
       <div style="flex:1;">
         <div style="font-weight:600;font-size:13px;margin-bottom:2px;">Appen er låst</div>
-        <div style="font-size:12px;color:var(--text2);">Klik på <strong style="color:var(--text);">🔒 Låst</strong> øverst til højre for at redigere træninger, katalog og årshjul. Kodeord: <strong style="color:var(--text);">Ajax321</strong></div>
+        <div style="font-size:12px;color:var(--text2);">Klik på <strong style="color:var(--text);">🔒 Låst</strong> øverst til højre for at redigere træninger, katalog og årshjul</div>
       </div>
       <button id="tipDismissBtn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;flex-shrink:0;padding:0 4px;" title="Luk">×</button>
     </div>` : '';
@@ -1018,7 +1018,7 @@ Krav:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
