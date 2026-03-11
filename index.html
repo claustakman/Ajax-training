@@ -1024,7 +1024,11 @@ Krav:
       })
     });
 
-    if (!response.ok) throw new Error('API fejl: ' + response.status);
+    if (!response.ok) {
+      let errMsg = 'API fejl: ' + response.status;
+      try { const errData = await response.json(); errMsg += ' – ' + (errData.error?.message || JSON.stringify(errData)); } catch(e){}
+      throw new Error(errMsg);
+    }
     const data = await response.json();
     const text = data.content?.find(b => b.type === 'text')?.text?.trim();
     if (!text) throw new Error('Tomt svar');
