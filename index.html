@@ -1038,8 +1038,18 @@ Krav:
     toast('Beskrivelse genereret ✨');
   } catch (err) {
     console.error(err);
-    if (statusEl) { statusEl.style.display = 'block'; statusEl.style.color = 'var(--red)'; statusEl.textContent = 'Kunne ikke generere beskrivelse. Prøv igen.'; }
-    toast('AI fejlede – prøv igen', 'err');
+    const isCredit = err.message?.toLowerCase().includes('credit') || err.message?.toLowerCase().includes('billing');
+    const userMsg = isCredit
+      ? 'Ingen AI-credits – gå til console.anthropic.com for at opgradere'
+      : 'Kunne ikke generere beskrivelse. Prøv igen.';
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.color = 'var(--red)';
+      statusEl.innerHTML = isCredit
+        ? '⚠️ Ingen credits – <a href="https://console.anthropic.com/settings/billing" target="_blank" style="color:var(--blue);">Opgrader her ↗</a>'
+        : 'Kunne ikke generere beskrivelse. Prøv igen.';
+    }
+    toast(userMsg, 'err');
   } finally {
     btn.disabled = false;
     btn.textContent = '✨ Generer med AI';
