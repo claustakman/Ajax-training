@@ -766,13 +766,13 @@ function html_exrow(ex,si,ei) {
 function renderCatRows(filtered, cat) {
   if(filtered.length===0) return `<div class="empty"><div class="empty-icon">🏋️</div><p>${(cat||[]).length===0?'Importer øvelser fra Excel/CSV':'Ingen resultater'}</p></div>`;
   return filtered.slice(0,120).map(ex=>`
-    <div class="cat-row" data-editex="${ex.id}">
+    <div class="cat-row" data-catdetail="${ex.id}">
       <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
       <div class="cat-col-desc" style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
       <div class="cat-col-stars stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
       <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
       <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
-      <div><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
+      <div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs" data-editex="${ex.id}" onclick="event.stopPropagation()" title="Redigér">✎</button><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
     </div>`).join('')
   + (filtered.length>120?`<div style="padding:10px;text-align:center;color:var(--text2);font-size:12px;">Viser 120 af ${filtered.length} – søg for at filtrere</div>`:'');
 }
@@ -926,7 +926,7 @@ function html_m_exdetail(ex) {
     ${ex.link?`<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Kilde</div><a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);">${esc(ex.link.replace(/^https?:\/\//, '').substring(0,50))}${ex.link.length>53?'…':''} ↗</a></div>`:''}
     ${!ex.description&&!ex.variants&&!ex.link?`<p style="color:var(--text3);font-size:13px;">Ingen yderligere oplysninger for denne øvelse.</p>`:''}
   </div>
-  <div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>`,'modal-sm');
+  <div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button><button class="btn btn-ghost" data-editex="${ex.id}" style="margin-left:auto;">✎ Redigér</button></div>`,'modal-sm');
 }
 
 function html_m_custem(si) {
@@ -1053,7 +1053,7 @@ function bind() {
   // addex handled by document delegation
   bindPickList();
   on('[data-custex]', el=>{S.modal={type:'custEx',si:+el.dataset.custex};render();});
-  on('[data-delex]',  el=>{const[si,ei]=el.dataset.delex.split('-').map(Number);S.draft.sections[si].exercises.splice(ei,1);renderSecs();});
+  // data-delex handled by document delegation below
   // Document-level delegation for all section/exercise operations that need DOM-only updates
   if(!document._exCheckBound){document._exCheckBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-excheck]');
@@ -1120,6 +1120,15 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
       const body=document.getElementById(`sbd-${si}`);
       if(body) body.innerHTML=exs.map((ex,i)=>html_exrow(ex,si,i)).join('')+(exs.length?'':'<p style="color:var(--text3);font-size:12px;">Ingen øvelser</p>');
       else renderSecs();
+      return;
+    }
+    // ── delex ────────────────────────────────────────────────────
+    const dxEl=e.target.closest('[data-delex]');
+    if(dxEl&&S.draft){
+      e.stopPropagation();
+      const[si,ei]=dxEl.dataset.delex.split('-').map(Number);
+      S.draft.sections[si].exercises.splice(ei,1);
+      renderSecs();
       return;
     }
     // ── addex (add exercise — preserve scroll) ───────────────────
@@ -1200,7 +1209,23 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   if(!document._exdetailBound){document._exdetailBound=true;document.addEventListener('click',e=>{
     const el=e.target.closest('[data-exdetail]');
     if(!el)return;
-    const id=el.dataset.exdetail; if(!id) return;
+    const id=el.dataset.exdetail;
+    const all=S.halCatalog.concat(S.fysCatalog);
+    const ex=id?all.find(e=>e.id===id):null;
+    // For Fri øvelse (no id), show a minimal detail with customName
+    if(!id){
+      const row=el.closest('.ex-row');
+      const customName=row?.querySelector('[data-exdetail]')?.textContent?.trim();
+      if(customName&&customName!=='Fri øvelse'){e.stopPropagation();S.modal={type:'exDetail',ex:{name:customName,description:'',variants:'',tags:[],stars:0,link:''}};render();}
+      return;
+    }
+    if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
+  });}
+  if(!document._catdetailBound){document._catdetailBound=true;document.addEventListener('click',e=>{
+    if(e.target.closest('[data-editex],[data-delexcat]'))return; // let edit/delete handle it
+    const el=e.target.closest('[data-catdetail]');
+    if(!el)return;
+    const id=el.dataset.catdetail;
     const all=S.halCatalog.concat(S.fysCatalog);
     const ex=all.find(e=>e.id===id);
     if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
