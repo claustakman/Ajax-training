@@ -419,7 +419,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false, tipDismissed: lsLoad('tipDismissed', false),
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''),
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -506,12 +506,13 @@ function html_app() {
     + (S.tab==='aarshjul' ? html_aarshjul_tab() : '')
     + (S.tab==='katalog'  ? html_katalog_tab()  : '')
     + (S.tab==='arkiv'    ? html_arkiv_tab()     : '')
+    + (S.tab==='indstillinger' ? html_indstillinger_tab() : '')
     + `</div>`
     + (S.modal ? html_modal() : '');
 }
 
 function html_topbar() {
-  const tabs = [{id:'traening',l:'Træning'},{id:'aarshjul',l:'Årshjul'},{id:'katalog',l:'Katalog'},{id:'arkiv',l:'Arkiv'}];
+  const tabs = [{id:'traening',l:'Træning'},{id:'aarshjul',l:'Årshjul'},{id:'katalog',l:'Katalog'},{id:'arkiv',l:'Arkiv'},{id:'indstillinger',l:'⚙️'}];
   return `<div class="topbar">
     <div class="topbar-logo">
       <img src="icon.png" width="34" height="34" style="border-radius:50%;object-fit:cover;" alt="Ajax logo">
@@ -1029,7 +1030,7 @@ Krav:
 - Passende til ${ag}-niveau (${ageLbl} årige)
 - Ingen overskrift, kun selve beskrivelsen`;
 
-    const response = await fetch('https://ajax-ai-proxy.claus-takman.workers.dev/', {
+    const response = await fetch((S.aiWorkerUrl||'https://ajax-ai-proxy.claus-takman.workers.dev')+'/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1151,60 +1152,53 @@ function html_m_hs_loading() {
 }
 
 function html_m_hs_picker() {
-  const all = _hsAllActivities;
-  const filtered = all.filter(hsIsTraining);
-  const shown = _hsShowAll ? all : (filtered.length ? filtered : all);
-  const existingDates = new Set(S.trainings.map(t => t.date));
-
-  let h = `<div class="modal-body" style="padding-bottom:0;">`;
-
-  // Filter toggle
-  h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">`;
+  var all = _hsAllActivities;
+  var filtered = all.filter(hsIsTraining);
+  var shown = _hsShowAll ? all : (filtered.length ? filtered : all);
+  var existingDates = new Set(S.trainings.map(function(t){return t.date;}));
+  var h = '<div class="modal-body" style="padding-bottom:0;">';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">';
   if (!_hsShowAll && filtered.length > 0 && filtered.length < all.length) {
-    h += `<span style="font-size:12px;color:var(--text2);">Viser \${filtered.length} af \${all.length} (filtreret på 'træning')</span>`;
-    h += `<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Vis alle</button>`;
+    h += '<span style="font-size:12px;color:var(--text2);">Viser '+filtered.length+' af '+all.length+' (kun træninger)</span>';
+    h += '<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Vis alle</button>';
   } else if (_hsShowAll) {
-    h += `<span style="font-size:12px;color:var(--text2);">Viser alle \${all.length} aktiviteter</span>`;
-    h += `<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Kun træninger</button>`;
+    h += '<span style="font-size:12px;color:var(--text2);">Viser alle '+all.length+' aktiviteter</span>';
+    h += '<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Kun træninger</button>';
   } else {
-    h += `<span style="font-size:12px;color:var(--text2);">\${shown.length} aktiviteter</span>`;
+    h += '<span style="font-size:12px;color:var(--text2);">'+shown.length+' aktiviteter</span>';
   }
-  h += `<button class="btn btn-ghost btn-xs" id="hs-sel-all">Vælg alle</button>`;
-  h += `<button class="btn btn-ghost btn-xs" id="hs-desel-all">Fravælg alle</button>`;
-  h += `</div>`;
-
-  h += `<div style="max-height:46vh;overflow-y:auto;margin:0 -20px;padding:0 20px;">`;
-  if (!shown.length) {
-    h += `<p style="color:var(--text3);text-align:center;padding:24px;">Ingen aktiviteter fundet</p>`;
+  h += '<button class="btn btn-ghost btn-xs" id="hs-sel-all">Vælg alle</button>';
+  h += '<button class="btn btn-ghost btn-xs" id="hs-desel-all">Fravælg alle</button>';
+  h += '</div>';
+  h += '<div style="max-height:46vh;overflow-y:auto;margin:0 -20px;padding:0 20px;">';
+  if (!shown.length) { h += '<p style="color:var(--text3);text-align:center;padding:24px;">Ingen aktiviteter fundet</p>'; }
+  for (var i=0; i<shown.length; i++) {
+    var a = shown[i];
+    var name = a.name || a.title || '(uden navn)';
+    var raw = a.starttime || '';
+    var date = raw ? raw.split('T')[0] : '';
+    var time = raw.indexOf('T')>=0 ? raw.split('T')[1].slice(0,5) : '';
+    var endRaw = a.endtime || '';
+    var endTime = endRaw.indexOf('T')>=0 ? endRaw.split('T')[1].slice(0,5) : '';
+    var already = date && existingDates.has(date);
+    h += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);'+(already?'opacity:.5':'')+'">';
+    h += '<input type="checkbox" class="hs-cb" data-idx="'+i+'" '+(already?'disabled':'')+' style="margin-top:3px;width:16px;height:16px;flex-shrink:0;">';
+    h += '<div style="flex:1;min-width:0;">';
+    h += '<div style="font-weight:600;font-size:13px;">'+esc(name)+(already?' <span style="font-size:10px;color:var(--text3);font-weight:400;">dato findes</span>':'')+' </div>';
+    h += '<div style="font-size:11px;color:var(--text2);margin-top:2px;">';
+    if (date) h += fmtWday(date)+' '+fmtDay(date)+' '+fmtMon(date);
+    if (time && time!=='00:00') h += ' · '+time;
+    if (endTime && endTime!=='00:00') h += '–'+endTime;
+    if (a.place) h += ' · '+esc(a.place);
+    if (a._teamName) h += ' · '+esc(a._teamName);
+    h += '</div></div></div>';
   }
-  shown.forEach((a, i) => {
-    const name = a.name || a.title || '(uden navn)';
-    const raw  = a.starttime || '';
-    const date = raw ? raw.split('T')[0] : '';
-    const time = raw.includes('T') ? raw.split('T')[1].slice(0,5) : '';
-    const endRaw = a.endtime || '';
-    const endTime = endRaw.includes('T') ? endRaw.split('T')[1].slice(0,5) : '';
-    const already = date && existingDates.has(date);
-    h += `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);\${already?'opacity:.5':''}">`;
-    h += `<input type="checkbox" class="hs-cb" data-idx="\${i}" \${already?'disabled title="Træning på denne dato findes allerede"':''} style="margin-top:3px;width:16px;height:16px;flex-shrink:0;">`;
-    h += `<div style="flex:1;min-width:0;">`;
-    h += `<div style="font-weight:600;font-size:13px;">\${esc(name)}\${already?' <span style="font-size:10px;color:var(--text3);font-weight:400;">dato findes</span>':''}</div>`;
-    h += `<div style="font-size:11px;color:var(--text2);margin-top:2px;">`;
-    if (date) h += fmtWday(date) + ' ' + fmtDay(date) + ' ' + fmtMon(date);
-    if (time && time !== '00:00') h += ' · ' + time;
-    if (endTime && endTime !== '00:00') h += '–' + endTime;
-    if (a.place) h += ' · 📍 ' + esc(a.place);
-    if (a._teamName) h += ' · ' + esc(a._teamName);
-    h += `</div></div></div>`;
-  });
-  h += `</div>`;
-  h += `</div>`;
-  h += `<div class="modal-footer" style="gap:6px;">
-    <button class="btn btn-ghost mclose" style="flex:1;">Annuller</button>
-    <button class="btn btn-ghost btn-xs" id="hs-settings-btn" style="font-size:11px;">⚙ Indstillinger</button>
-    <button class="btn btn-primary" id="hs-import-btn" style="flex:1;">⬇ Opret valgte</button>
-  </div>`;
-
+  h += '</div></div>';
+  h += '<div class="modal-footer" style="gap:6px;">';
+  h += '<button class="btn btn-ghost mclose" style="flex:1;">Annuller</button>';
+  h += '<button class="btn btn-ghost btn-xs" id="hs-settings-btn" style="font-size:11px;">⚙ Indstillinger</button>';
+  h += '<button class="btn btn-primary" id="hs-import-btn" style="flex:1;">⬇ Opret valgte</button>';
+  h += '</div>';
   window._hsShown = shown;
   return mwrap(mhead('Importer fra Holdsport') + h, 'modal-sm');
 }
@@ -1238,6 +1232,42 @@ function hsImportSelected() {
   S.modal = null;
   toast('✓ ' + count + ' træning' + (count !== 1 ? 'er' : '') + ' oprettet');
   render();
+}
+
+
+// ─── INDSTILLINGER ────────────────────────────────────────────────────────────
+function html_indstillinger_tab() {
+  return '<div style="max-width:640px;margin:0 auto;">' +
+    '<h1 style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;margin-bottom:20px;">INDSTILLINGER</h1>' +
+
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header"><span class="card-title">Google Sheets</span></div>' +
+    '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div class="form-group" style="margin:0;"><label>Spreadsheet ID</label>' +
+    '<div style="display:flex;gap:8px;"><input id="cfg-sheets-id" value="'+esc(S.sheetsId||'')+'" placeholder="1BxiM..." style="flex:1;font-family:monospace;font-size:12px;">' +
+    '<button class="btn btn-secondary btn-xs" id="cfg-sheets-save">Gem</button></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Finds i URL’en på dit Google Sheets: docs.google.com/spreadsheets/d/<strong>ID</strong>/edit</p>' +
+    '</div></div></div>' +
+
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header"><span class="card-title">Holdsport</span></div>' +
+    '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div class="form-group" style="margin:0;"><label>Holdsport Worker URL</label>' +
+    '<div style="display:flex;gap:8px;"><input id="cfg-hs-url" value="'+esc(S.hsWorkerUrl||'')+'" placeholder="https://holdsport-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
+    '<button class="btn btn-secondary btn-xs" id="cfg-hs-save">Gem</button></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Holdsport API.</p>' +
+    '</div></div></div>' +
+
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header"><span class="card-title">AI</span></div>' +
+    '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div class="form-group" style="margin:0;"><label>AI Worker URL</label>' +
+    '<div style="display:flex;gap:8px;"><input id="cfg-ai-url" value="'+esc(S.aiWorkerUrl||'')+'" placeholder="https://ajax-ai-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
+    '<button class="btn btn-secondary btn-xs" id="cfg-ai-save">Gem</button></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Anthropic API til AI-beskrivelser.</p>' +
+    '</div></div></div>' +
+
+    '</div>';
 }
 
 // ─── BIND ─────────────────────────────────────────────────────────────────────
@@ -1277,6 +1307,9 @@ function bind() {
   ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
+  ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
+  ge('cfg-hs-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-url')?.value?.trim().replace(/\/$/,'');S.hsWorkerUrl=v||'';lsSave('hsWorkerUrl',S.hsWorkerUrl);toast('Holdsport Worker URL gemt ✓');});
+  ge('cfg-ai-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-ai-url')?.value?.trim().replace(/\/$/,'');S.aiWorkerUrl=v||'';lsSave('aiWorkerUrl',S.aiWorkerUrl);toast('AI Worker URL gemt ✓');});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
   ge('unlockBtn')?.addEventListener('click',()=>{
