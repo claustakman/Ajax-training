@@ -419,7 +419,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false, tipDismissed: lsLoad('tipDismissed', false),
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'),
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -456,7 +456,13 @@ async function loadFromSheets() {
       loadCatalog(SHEETS.hal), loadCatalog(SHEETS.fys)
     ]);
     if (trainings !== null) S.trainings  = trainings;
-    if (quarters  !== null) S.quarters   = quarters;
+    if (quarters !== null) {
+      // Merge saved themes into QUARTERS template (preserves new periods/labels)
+      S.quarters = QUARTERS.map(q => {
+        const saved = quarters.find(sq => sq.id === q.id);
+        return saved ? {...q, themes: saved.themes || ['','']} : {...q, themes: ['','']};
+      });
+    }
     // Google Sheets er kilden. INIT_HAL/INIT_PLYO bruges kun hvis Sheets er tomt (ny installation).
     if (hal !== null) { S.halCatalog = hal; }
     else { await saveCatalog(SHEETS.hal, S.halCatalog); toast('Haltræningskatalog oprettet i regneark', 'info'); }
@@ -581,6 +587,7 @@ function html_traening_tab() {
       <div><h1 style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;">TRÆNINGER</h1>
       <p style="color:var(--text2);font-size:12px;margin-top:2px;">${upcoming.length} kommende</p></div>
       <div class="flex-row">
+        <button class="btn btn-ghost" id="hsImportBtn" title="Importer fra Holdsport">📥 Holdsport</button>
         <button class="btn btn-secondary" id="fromTmplBtn">Fra skabelon</button>
         <button class="btn btn-primary" id="newTBtn">+ Ny træning</button>
       </div>
@@ -633,6 +640,7 @@ function html_editor() {
       <button class="btn btn-ghost" id="cancelBtn">← Tilbage</button>
       <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
       <div class="flex-row" style="margin-left:auto;">
+        <button class="btn btn-ghost" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
         <button class="btn btn-secondary" id="saveTmplBtn">💾 Skabelon</button>
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost" id="archTBtn">Arkivér</button><button class="btn btn-danger" id="delTBtn">Slet</button>`:''}
         <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
@@ -886,6 +894,12 @@ function html_modal() {
   if(m.type==='exDetail') return html_m_exdetail(m.ex);
   if(m.type==='custEx')  return html_m_custem(m.si);
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
+  if(m.type==='hsSettings') return html_m_hs_settings();
+  if(m.type==='hsLoading')  return html_m_hs_loading();
+  if(m.type==='hsPicker')   return html_m_hs_picker();
+  if(m.type==='hsSettings') return html_m_hs_settings();
+  if(m.type==='hsLoading')  return html_m_hs_loading();
+  if(m.type==='hsPicker')   return html_m_hs_picker();
   if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
   return '';
 }
@@ -1057,6 +1071,175 @@ Krav:
   }
 }
 
+
+// ─── HOLDSPORT INTEGRATION ────────────────────────────────────────────────────
+
+let _hsAllActivities = [];
+let _hsShowAll = false;
+
+async function hsFetch(path) {
+  const url = S.hsWorkerUrl;
+  if (!url) throw new Error('Worker URL ikke sat – gå til indstillinger');
+  const res = await fetch(url + path, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function hsExtractActivities(data, teamId, teamName) {
+  let arr = [];
+  if (Array.isArray(data)) { arr = data; }
+  else if (data && typeof data === 'object') {
+    for (const key of ['activities','items','data','results']) {
+      if (Array.isArray(data[key])) { arr = data[key]; break; }
+    }
+    if (!arr.length) {
+      for (const key of Object.keys(data)) {
+        const v = data[key];
+        if (Array.isArray(v) && v.length > 0 && v[0] && (v[0].starttime || v[0].id)) { arr = v; break; }
+      }
+    }
+    if (!arr.length && (data.starttime || data.id)) arr = [data];
+  }
+  arr = arr.filter(a => a && (a.starttime || a.endtime || a.event_type_id));
+  return arr.map(a => ({ ...a, _teamId: teamId, _teamName: teamName }));
+}
+
+function hsIsTraining(a) {
+  return (a.name || a.title || '').toLowerCase().includes('tr\u00e6ning');
+}
+
+async function hsOpenImport() {
+  if (!S.hsWorkerUrl) {
+    S.modal = { type: 'hsSettings' }; render(); return;
+  }
+  S.modal = { type: 'hsLoading' }; render();
+  try {
+    const teamsData = await hsFetch('/teams');
+    const teams = Array.isArray(teamsData) ? teamsData
+      : (teamsData.teams || teamsData.data || Object.values(teamsData).find(v => Array.isArray(v)) || []);
+
+    const today = new Date().toISOString().split('T')[0];
+    let all = [];
+    for (const team of teams) {
+      try {
+        const raw = await hsFetch('/teams/' + team.id + '/activities?date=' + today + '&per_page=100');
+        all = all.concat(hsExtractActivities(raw, team.id, team.name || team.title || ''));
+      } catch(e) {}
+    }
+    _hsAllActivities = all;
+    _hsShowAll = false;
+    S.modal = { type: 'hsPicker' }; render();
+  } catch(e) {
+    S.modal = null; render();
+    toast('Holdsport fejl: ' + e.message, 'err');
+  }
+}
+
+function html_m_hs_settings() {
+  return mwrap(mhead('Holdsport indstillinger') + `<div class="modal-body">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Indtast URL på din Holdsport Cloudflare Worker proxy.</p>
+    <div class="form-group"><label>Worker URL</label><input id="hs-worker-url" type="url" value="\${esc(S.hsWorkerUrl)}" placeholder="https://holdsport-proxy.DITNAVN.workers.dev"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="hs-save-url">Gem & hent</button></div>`, 'modal-sm');
+}
+
+function html_m_hs_loading() {
+  return mwrap(mhead('Holdsport') + `<div class="modal-body" style="text-align:center;padding:32px;">
+    <div style="font-size:28px;margin-bottom:12px;">⏳</div>
+    <div style="color:var(--text2);">Henter aktiviteter fra Holdsport…</div>
+  </div>`, 'modal-sm');
+}
+
+function html_m_hs_picker() {
+  const all = _hsAllActivities;
+  const filtered = all.filter(hsIsTraining);
+  const shown = _hsShowAll ? all : (filtered.length ? filtered : all);
+  const existingDates = new Set(S.trainings.map(t => t.date));
+
+  let h = `<div class="modal-body" style="padding-bottom:0;">`;
+
+  // Filter toggle
+  h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">`;
+  if (!_hsShowAll && filtered.length > 0 && filtered.length < all.length) {
+    h += `<span style="font-size:12px;color:var(--text2);">Viser \${filtered.length} af \${all.length} (filtreret på 'træning')</span>`;
+    h += `<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Vis alle</button>`;
+  } else if (_hsShowAll) {
+    h += `<span style="font-size:12px;color:var(--text2);">Viser alle \${all.length} aktiviteter</span>`;
+    h += `<button class="btn btn-ghost btn-xs" id="hs-toggle-all">Kun træninger</button>`;
+  } else {
+    h += `<span style="font-size:12px;color:var(--text2);">\${shown.length} aktiviteter</span>`;
+  }
+  h += `<button class="btn btn-ghost btn-xs" id="hs-sel-all">Vælg alle</button>`;
+  h += `<button class="btn btn-ghost btn-xs" id="hs-desel-all">Fravælg alle</button>`;
+  h += `</div>`;
+
+  h += `<div style="max-height:46vh;overflow-y:auto;margin:0 -20px;padding:0 20px;">`;
+  if (!shown.length) {
+    h += `<p style="color:var(--text3);text-align:center;padding:24px;">Ingen aktiviteter fundet</p>`;
+  }
+  shown.forEach((a, i) => {
+    const name = a.name || a.title || '(uden navn)';
+    const raw  = a.starttime || '';
+    const date = raw ? raw.split('T')[0] : '';
+    const time = raw.includes('T') ? raw.split('T')[1].slice(0,5) : '';
+    const endRaw = a.endtime || '';
+    const endTime = endRaw.includes('T') ? endRaw.split('T')[1].slice(0,5) : '';
+    const already = date && existingDates.has(date);
+    h += `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);\${already?'opacity:.5':''}">`;
+    h += `<input type="checkbox" class="hs-cb" data-idx="\${i}" \${already?'disabled title="Træning på denne dato findes allerede"':''} style="margin-top:3px;width:16px;height:16px;flex-shrink:0;">`;
+    h += `<div style="flex:1;min-width:0;">`;
+    h += `<div style="font-weight:600;font-size:13px;">\${esc(name)}\${already?' <span style="font-size:10px;color:var(--text3);font-weight:400;">dato findes</span>':''}</div>`;
+    h += `<div style="font-size:11px;color:var(--text2);margin-top:2px;">`;
+    if (date) h += fmtWday(date) + ' ' + fmtDay(date) + ' ' + fmtMon(date);
+    if (time && time !== '00:00') h += ' · ' + time;
+    if (endTime && endTime !== '00:00') h += '–' + endTime;
+    if (a.place) h += ' · 📍 ' + esc(a.place);
+    if (a._teamName) h += ' · ' + esc(a._teamName);
+    h += `</div></div></div>`;
+  });
+  h += `</div>`;
+  h += `</div>`;
+  h += `<div class="modal-footer" style="gap:6px;">
+    <button class="btn btn-ghost mclose" style="flex:1;">Annuller</button>
+    <button class="btn btn-ghost btn-xs" id="hs-settings-btn" style="font-size:11px;">⚙ Indstillinger</button>
+    <button class="btn btn-primary" id="hs-import-btn" style="flex:1;">⬇ Opret valgte</button>
+  </div>`;
+
+  window._hsShown = shown;
+  return mwrap(mhead('Importer fra Holdsport') + h, 'modal-sm');
+}
+
+function hsImportSelected() {
+  const shown = window._hsShown || [];
+  const selected = [...document.querySelectorAll('.hs-cb:checked')]
+    .map(cb => shown[parseInt(cb.dataset.idx)]).filter(Boolean);
+  if (!selected.length) { toast('Ingen valgt', 'err'); return; }
+
+  let count = 0;
+  selected.forEach(a => {
+    const raw  = a.starttime || '';
+    const date = raw ? raw.split('T')[0] : '';
+    const startTime = raw.includes('T') ? raw.split('T')[1].slice(0,5) : '';
+    const endRaw = a.endtime || '';
+    const endTime = endRaw.includes('T') ? endRaw.split('T')[1].slice(0,5) : '';
+    const place = a.place || '';
+    // Match location to known locations
+    const loc = LOCATIONS.find(l => place.toLowerCase().includes(l.toLowerCase())) || '';
+    S.trainings.push({
+      id: uid(), date, startTime, endTime,
+      location: loc, title: a.name || a.title || '',
+      trainers: [], leadTrainer: '', sections: [], stars: 0,
+      notes: place && !loc ? place : '',
+    });
+    count++;
+  });
+
+  scheduleSave('trainings');
+  S.modal = null;
+  toast('✓ ' + count + ' træning' + (count !== 1 ? 'er' : '') + ' oprettet');
+  render();
+}
+
 // ─── BIND ─────────────────────────────────────────────────────────────────────
 // Event delegation for dynamically re-rendered pick list
 document.addEventListener('click', e=>{
@@ -1090,6 +1273,8 @@ function bind() {
   on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
   on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
   on('[data-deltrain]',el=>{const id=el.dataset.deltrain;if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==id);scheduleSave('trainings');toast('Træning slettet');render();});
+  ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
+  ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
@@ -1101,6 +1286,16 @@ function bind() {
   ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
   ge('archTBtn')?.addEventListener('click',()=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===S.draft.id);if(t){t.archived=true;S.draft=null;scheduleSave('trainings');toast('Arkiveret');render();}}));
   ge('delTBtn')?.addEventListener('click',()=>requireUnlock(()=>{if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==S.draft.id);S.draft=null;scheduleSave('trainings');toast('Træning slettet');render();}));
+  ge('resetChecksBtn')?.addEventListener('click',()=>{
+    if(!S.draft)return;
+    const anyDone=S.draft.sections.some(s=>(s.exercises||[]).some(e=>e.done));
+    if(!anyDone){toast('Ingen afkrydsninger at nulstille');return;}
+    if(!confirm('Nulstil alle afkrydsninger i denne træning?'))return;
+    S.draft.sections.forEach(s=>(s.exercises||[]).forEach(e=>e.done=false));
+    scheduleSave('trainings');
+    renderSecs();
+    toast('Afkrydsninger nulstillet');
+  });
   ge('saveTBtn')?.addEventListener('click',()=>requireUnlock(saveTraining));
   ge('saveTmplBtn')?.addEventListener('click',()=>{S.modal={type:'saveTmpl'};render();});
   on('[data-loc]',    el=>{if(!S.draft)return;S.draft.location=S.draft.location===el.dataset.loc?'':el.dataset.loc;
@@ -1330,6 +1525,26 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
       return;
     }
     if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
+  });}
+  if(!document._hsBound){document._hsBound=true;document.addEventListener('click',e=>{
+    if(e.target.closest('#hs-save-url')){
+      const val=(document.getElementById('hs-worker-url')?.value||'').trim().replace(/\/$/,'');
+      S.hsWorkerUrl=val;lsSave('hsWorkerUrl',val);S.modal=null;render();
+      setTimeout(()=>requireUnlock(hsOpenImport),50);
+    }
+    if(e.target.closest('#hs-toggle-all')){_hsShowAll=!_hsShowAll;S.modal={type:'hsPicker'};render();}
+    if(e.target.closest('#hs-sel-all')){document.querySelectorAll('.hs-cb:not(:disabled)').forEach(cb=>cb.checked=true);}
+    if(e.target.closest('#hs-desel-all')){document.querySelectorAll('.hs-cb:not(:disabled)').forEach(cb=>cb.checked=false);}
+    if(e.target.closest('#hs-import-btn')){hsImportSelected();}
+    if(e.target.closest('#hs-settings-btn')){S.modal={type:'hsSettings'};render();}
+  });}
+  if(!document._hsBound){document._hsBound=true;document.addEventListener('click',e=>{
+    if(e.target.closest('#hs-save-url')){const val=(document.getElementById('hs-worker-url')?.value||'').trim().replace(/\/$/,'');S.hsWorkerUrl=val;lsSave('hsWorkerUrl',val);S.modal=null;render();setTimeout(()=>requireUnlock(hsOpenImport),50);}
+    if(e.target.closest('#hs-toggle-all')){_hsShowAll=!_hsShowAll;S.modal={type:'hsPicker'};render();}
+    if(e.target.closest('#hs-sel-all')){document.querySelectorAll('.hs-cb:not(:disabled)').forEach(cb=>cb.checked=true);}
+    if(e.target.closest('#hs-desel-all')){document.querySelectorAll('.hs-cb:not(:disabled)').forEach(cb=>cb.checked=false);}
+    if(e.target.closest('#hs-import-btn')){hsImportSelected();}
+    if(e.target.closest('#hs-settings-btn')){S.modal={type:'hsSettings'};render();}
   });}
   if(!document._catdetailBound){document._catdetailBound=true;document.addEventListener('click',e=>{
     if(e.target.closest('[data-editex],[data-delexcat]'))return; // let edit/delete handle it
