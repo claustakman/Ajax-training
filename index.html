@@ -1897,7 +1897,7 @@ function exportCatalog(fmt){
     (e.tags||[]).join(', '),
     e.stars||'',
     e.link||'',
-    (e.variants||[]).join('; ')
+    (Array.isArray(e.variants)?e.variants.join('; '):(e.variants||''))
   ]);
   if(fmt==='csv'){
     const esc=v=>'"'+String(v).replace(/"/g,'""')+'"';
