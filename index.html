@@ -789,6 +789,7 @@ function html_modal() {
   if(m.type==='exDetail') return html_m_exdetail(m.ex);
   if(m.type==='custEx')  return html_m_custem(m.si);
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
+  if(m.type==='hsDatePick')  return html_m_hs_datepick();
   if(m.type==='hsSettings') return html_m_hs_settings();
   if(m.type==='hsLoading')  return html_m_hs_loading();
   if(m.type==='hsPicker')   return html_m_hs_picker();
@@ -1005,21 +1006,17 @@ function hsIsTraining(a) {
   return (a.name || a.title || '').toLowerCase().includes('tr\u00e6ning');
 }
 
-async function hsOpenImport() {
-  if (!S.hsWorkerUrl) {
-    S.modal = { type: 'hsSettings' }; render(); return;
-  }
+async function hsFetchActivities(fromDate, toDate) {
   S.modal = { type: 'hsLoading' }; render();
   try {
     const teamsData = await hsFetch('/teams');
     const teams = Array.isArray(teamsData) ? teamsData
       : (teamsData.teams || teamsData.data || Object.values(teamsData).find(v => Array.isArray(v)) || []);
-
-    const today = new Date().toISOString().split('T')[0];
     let all = [];
     for (const team of teams) {
       try {
-        const raw = await hsFetch('/teams/' + team.id + '/activities?date=' + today + '&per_page=100');
+        const qs = '?date=' + fromDate + (toDate ? '&to=' + toDate : '') + '&per_page=100';
+        const raw = await hsFetch('/teams/' + team.id + '/activities' + qs);
         all = all.concat(hsExtractActivities(raw, team.id, team.name || team.title || ''));
       } catch(e) {}
     }
@@ -1030,6 +1027,36 @@ async function hsOpenImport() {
     S.modal = null; render();
     toast('Holdsport fejl: ' + e.message, 'err');
   }
+}
+
+async function hsOpenImport() {
+  if (!S.hsWorkerUrl) {
+    S.modal = { type: 'hsSettings' }; render(); return;
+  }
+  S.modal = { type: 'hsDatePick' }; render();
+}
+
+function html_m_hs_datepick() {
+  const today = new Date();
+  const in30  = new Date(today); in30.setDate(today.getDate() + 30);
+  const fmt   = d => d.toISOString().split('T')[0];
+  return mwrap(mhead('Hent fra Holdsport') + '<div class="modal-body">' +
+    '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Vælg hvilken periode du vil hente træninger for.</p>' +
+    '<div class="grid-2">' +
+    '<div class="form-group"><label>Fra dato</label><input type="date" id="hs-from" value="' + fmt(today) + '"></div>' +
+    '<div class="form-group"><label>Til dato</label><input type="date" id="hs-to" value="' + fmt(in30) + '"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">' +
+    '<button class="btn btn-ghost btn-xs" id="hs-range-2w">2 uger</button>' +
+    '<button class="btn btn-ghost btn-xs" id="hs-range-1m">1 måned</button>' +
+    '<button class="btn btn-ghost btn-xs" id="hs-range-3m">3 måneder</button>' +
+    '<button class="btn btn-ghost btn-xs" id="hs-range-rest">Resten af sæsonen</button>' +
+    '</div>' +
+    '</div>' +
+    '<div class="modal-footer">' +
+    '<button class="btn btn-ghost mclose" style="flex:1;">Annuller</button>' +
+    '<button class="btn btn-primary" id="hs-fetch-btn" style="flex:1;">⬇ Hent aktiviteter</button>' +
+    '</div>', 'modal-sm');
 }
 
 function html_m_hs_settings() {
@@ -1461,6 +1488,33 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     if(ex){e.stopPropagation();S.modal={type:'exDetail',ex};render();}
   });}
   if(!document._hsBound){document._hsBound=true;document.addEventListener('click',e=>{
+    // Date range shortcuts
+    const setRange = (days) => {
+      const from = new Date(); const to = new Date();
+      to.setDate(from.getDate() + days);
+      const fmt = d => d.toISOString().split('T')[0];
+      const f = document.getElementById('hs-from'); if(f) f.value = fmt(from);
+      const t = document.getElementById('hs-to');   if(t) t.value = fmt(to);
+    };
+    if(e.target.closest('#hs-range-2w'))   { setRange(14); return; }
+    if(e.target.closest('#hs-range-1m'))   { setRange(30); return; }
+    if(e.target.closest('#hs-range-3m'))   { setRange(90); return; }
+    if(e.target.closest('#hs-range-rest')) {
+      // Rest of season = until end of June
+      const from = new Date(); const fmt = d => d.toISOString().split('T')[0];
+      const endOfSeason = new Date(from.getFullYear(), 5, 30); // June 30
+      if (endOfSeason < from) endOfSeason.setFullYear(endOfSeason.getFullYear()+1);
+      const f = document.getElementById('hs-from'); if(f) f.value = fmt(from);
+      const t = document.getElementById('hs-to');   if(t) t.value = fmt(endOfSeason);
+      return;
+    }
+    if(e.target.closest('#hs-fetch-btn')){
+      const from = document.getElementById('hs-from')?.value;
+      const to   = document.getElementById('hs-to')?.value;
+      if(!from){ toast('Vælg en fra-dato', 'err'); return; }
+      hsFetchActivities(from, to);
+      return;
+    }
     if(e.target.closest('#hs-save-url')){
       const val=(document.getElementById('hs-worker-url')?.value||'').trim().replace(/\/$/,'');
       S.hsWorkerUrl=val;lsSave('hsWorkerUrl',val);S.modal=null;render();
