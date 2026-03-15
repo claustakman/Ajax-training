@@ -822,10 +822,19 @@ function mhead(title){return `<div class="modal-header"><span class="modal-title
 
 function renderPickList(f, si) {
   if(f.length===0) return `<div class="empty" style="padding:20px;"><p>Ingen resultater</p></div>`;
-  return f.slice(0,80).map(ex=>`<div class="list-item" style="margin-bottom:5px;" data-pickex="${ex.id}" data-si="${si}">
-    <div class="list-title">${esc(ex.name)}</div>
-    <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
-  </div>`).join('')
+  return f.slice(0,80).map(ex=>{
+    const hasDesc = ex.description && ex.description.trim();
+    return `<div class="list-item" style="margin-bottom:5px;padding:0;" data-pickex="${ex.id}" data-si="${si}">
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;">
+        <div style="flex:1;min-width:0;">
+          <div class="list-title">${esc(ex.name)}</div>
+          <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+        </div>
+        ${hasDesc ? `<button class="btn btn-ghost btn-xs" data-toggledesc="${esc(ex.id)}" onclick="event.stopPropagation();const d=document.getElementById('desc-${esc(ex.id)}');const btn=this;if(d.style.display==='none'){d.style.display='block';btn.textContent='▾';}else{d.style.display='none';btn.textContent='▸';}" style="flex-shrink:0;font-size:11px;width:22px;padding:0;">▸</button>` : '<span style="width:22px;flex-shrink:0;"></span>'}
+      </div>
+      ${hasDesc ? `<div id="desc-${esc(ex.id)}" style="display:none;padding:0 12px 10px 12px;font-size:12px;color:var(--text2);line-height:1.5;border-top:1px solid var(--border);">${esc(ex.description)}</div>` : ''}
+    </div>`;
+  }).join('')
   + (f.length>80?`<div style="text-align:center;color:var(--text3);font-size:12px;padding:8px;">Viser 80 af ${f.length}</div>`:'');
 }
 
