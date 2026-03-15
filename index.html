@@ -1831,12 +1831,7 @@ function saveExercise(exId) {
 }
 
 function bindPickList() {
-  document.querySelectorAll('[data-pickex]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});
-      S.modal=null;render();
-    });
-  });
+  // pickex handled by event delegation above
 }
 
 function bindImport() {
