@@ -223,13 +223,6 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-// ─── CONFIG (injected by GitHub Actions) ──────────────────────────────────────
-const GSHEETS_CONFIG = {
-  clientEmail: '__SHEETS_CLIENT_EMAIL__',
-  privateKey:  `__SHEETS_PRIVATE_KEY__`,
-  spreadsheetId: '__SHEETS_SPREADSHEET_ID__',
-};
-
 // ─── STATIC DATA ──────────────────────────────────────────────────────────────
 const TRAINERS  = ['Alexandra','Claus','Peder','Elma','Naya','Salli'];
 const LOCATIONS = ['Valby','Bavnehøj','Dybbøl'];
@@ -255,164 +248,69 @@ const QUARTERS = [
 const INIT_HAL = [{"id":"ktc4qjmenu","name":"Ståtrold","tags":["opvarmning","leg"],"stars":0},{"id":"obwheydmpr","name":"Katten, musen og plankeværket","tags":["opvarmning","leg"],"stars":0},{"id":"stonj8g0aw","name":"Cirkelbeskyttelse","tags":["opvarmning","leg"],"stars":0},{"id":"bvztytxode","name":"Kædetik","tags":["opvarmning","leg"],"stars":0},{"id":"8xj98zuy70","name":"Haleleg","tags":["opvarmning","leg"],"stars":0},{"id":"dn5pkzwl1b","name":"Beskyt din makker","tags":["opvarmning","leg"],"stars":0},{"id":"xi4bqzjk79","name":"Stoledans med veste eller bolde","tags":["opvarmning","leg"],"stars":0},{"id":"96lfpj7g8d","name":"Smittespredning","tags":["opvarmning","leg"],"stars":0},{"id":"ken8kdirey","name":"Fange ved sammenspil","tags":["opvarmning","leg"],"stars":0},{"id":"rtnc6s3pm2","name":"Høvdingebold","tags":["opvarmning","leg"],"stars":0},{"id":"7u9y78u2kg","name":"Hent keglen","tags":["opvarmning","leg"],"stars":5},{"id":"r9q5nuqvvo","name":"Murtik","tags":["opvarmning","leg"],"stars":0},{"id":"i2k03lhfe0","name":"Kampen mod bolden","tags":["opvarmning","leg"],"stars":0},{"id":"x767b4vlb9","name":"3 på stribe","tags":["opvarmning","leg"],"stars":0},{"id":"pvg9iz4nrd","name":"Memory","tags":["opvarmning","stafet"],"stars":0},{"id":"uc91ygaark","name":"Behændigsdyst i cirkel","tags":["opvarmning","stafet","leg"],"stars":0},{"id":"wn2vmetyr0","name":"Fange med liggende helle","tags":["opvarmning","leg"],"stars":0},{"id":"7kbi4devmy","name":"Partibold","tags":["opvarmning","småspil"],"stars":0},{"id":"pshmcudiga","name":"Partbiold med fart","tags":["opvarmning","småspil"],"stars":0},{"id":"bkrmlqo48z","name":"Baglinjebold","tags":["opvarmning","småspil"],"stars":0},{"id":"hcg8w3s6pk","name":"Partibold med midterfelt","tags":["opvarmning","småspil"],"stars":0},{"id":"y5qoalanbi","name":"Partibold med scoring i kegleport","tags":["opvarmning","småspil"],"stars":0},{"id":"y49yy2grby","name":"360 grader partibold","tags":["opvarmning","småspil"],"stars":0},{"id":"y2elddmvr5","name":"Touch-rugby","tags":["opvarmning","småspil"],"stars":0},{"id":"rxxioowqaa","name":"Feltspil","tags":["opvarmning","småspil"],"stars":0},{"id":"tt2pk0f511","name":"1 mod 1 med tilspiller","tags":["opvarmning","småspil"],"stars":0},{"id":"to1k35haga","name":"Smørklat","tags":["opvarmning","småspil"],"stars":0},{"id":"akcdf25t1w","name":"Kegletårn","tags":["opvarmning","småspil"],"stars":0},{"id":"u3ukbs29p7","name":"Touchdown","tags":["opvarmning","småspil"],"stars":0},{"id":"2f5vg6uao0","name":"Pingvinhop","tags":["opvarmning","stafet"],"stars":0},{"id":"hhg01m5ezt","name":"Krabbegang","tags":["opvarmning","stafet"],"stars":0},{"id":"azbq6jfksy","name":"Bearwalk","tags":["opvarmning","stafet"],"stars":0},{"id":"mv4v5dxa41","name":"Møve op numsen","tags":["opvarmning","stafet"],"stars":0},{"id":"zp6lcbx79e","name":"Frøhop","tags":["opvarmning","stafet"],"stars":0},{"id":"19gw220nha","name":"Almindelig dribling","tags":["opvarmning","stafet"],"stars":0},{"id":"psfllb06g8","name":"Drible med to bolde","tags":["opvarmning","stafet"],"stars":0},{"id":"t66mhdml7n","name":"Dribling med bold ved fod","tags":["opvarmning","stafet"],"stars":0},{"id":"z46ryjwsav","name":"Sprint, ned og ligge på x farvede linjer","tags":["opvarmning","stafet"],"stars":0},{"id":"uvko42mbdb","name":"Sprint, vend om når træner fløjter","tags":["opvarmning","stafet"],"stars":0},{"id":"opjdyymsmj","name":"Sprint fra liggende","tags":["opvarmning","stafet"],"stars":0},{"id":"cdyreyueso","name":"Forfølgesløb","tags":["opvarmning","stafet"],"stars":0},{"id":"26nxsaj3ml","name":"Bowling","tags":["opvarmning","stafet","leg"],"stars":0},{"id":"55jceqdm2r","name":"Diamant","tags":["opvarmning","stafet"],"stars":0},{"id":"8mk5bdjqy4","name":"Kålorm","tags":["opvarmning","stafet"],"stars":0},{"id":"50dxli0igv","name":"Stafet med depeche","tags":["opvarmning","stafet"],"stars":0},{"id":"fhgx2gq8hr","name":"Bjørnefødsel","tags":["opvarmning","styrke","leg"],"stars":0},{"id":"8pomtp8v0w","name":"Aben i træet","tags":["opvarmning","styrke","leg"],"stars":0},{"id":"6c1p38q1pr","name":"Søstjernen","tags":["opvarmning","styrke","leg"],"stars":0},{"id":"de24uba1zi","name":"Sumokamp","tags":["opvarmning","styrke","tvekamp"],"stars":0},{"id":"p2zxzvptyp","name":"Trillebør","tags":["opvarmning","styrke","leg"],"stars":0},{"id":"aqrp1l1gsr","name":"Spejlet / Juke out","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"73oaz44i60","name":"Rør din makker så mange gange som muligt","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"6ghf3ilw2h","name":"Følg din makker med dribling","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"400pjktikv","name":"Forsvar bolden","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"ndd117gv9m","name":"Hånd i hånd dyst","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"chcbbpmldd","name":"Slå den andens bold væk","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"yakjb2y858","name":"Sten-saks-papir","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"cjqirdv09l","name":"Stik af med bolden","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"uucin65hz5","name":"Stik af med objektet","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"d97iqv3hgq","name":"Dozy Doe","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"rk151jue04","name":"Sid på hug","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"gstp6nzawq","name":"Hurtige fødder","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"i6h3dne1yi","name":"Klap på lår","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"2t4p86is4o","name":"Klap over hånd","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"7jd9j708t6","name":"Træk hinanden","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"sf1gh7b5nu","name":"Forsvarsbevægelsesbane med makker","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"2l6iflxca4","name":"Stregspillerøvelsen","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"nfnkwzkjus","name":"Stregspillerøvelsen med indstik","tags":["opvarmning","tvekamp","styrke"],"stars":0},{"id":"1qtfob8d1y","name":"Rør bjørnens fødder","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"zz517x7ydk","name":"Parvis haleleg","tags":["opvarmning","tvekamp","hurtighed"],"stars":0},{"id":"yot627dia3","name":"Opvarmning af arm","tags":["aflevering"],"stars":0},{"id":"ciahryat3r","name":"Aflevering efter skudfinter","tags":["aflevering"],"stars":0},{"id":"qvvcqn77wa","name":"Aflevering med forspænding","tags":["aflevering"],"stars":0},{"id":"n3ddr5503q","name":"Afleveringer med tyveri","tags":["aflevering"],"stars":0},{"id":"28hprtor9c","name":"Sidelæns stempel","tags":["aflevering"],"stars":0},{"id":"vkjesd2ki6","name":"V bevægelse","tags":["aflevering"],"stars":0},{"id":"fuwwd6d0rd","name":"Aflevering efterfulgt af tackling","tags":["aflevering"],"stars":0},{"id":"8vqlfqifnq","name":"Siddende afleveringer","tags":["aflevering"],"stars":0},{"id":"ukugxvw4yv","name":"Afleveringer fra sidelinje til sidelinje","tags":["aflevering"],"stars":0},{"id":"0vbigz0kmv","name":"Afleveringer 3 og 3","tags":["aflevering"],"stars":0},{"id":"Afleveringer med finter","name":"Afleveringer med finter","tags":[],"stars":0},{"id":"9kj225tnxy","name":"Aflevering med puls","tags":["aflevering"],"stars":0},{"id":"bh5p3jvdj9","name":"Aflevering med løb","tags":["aflevering"],"stars":0},{"id":"npby7bkdk1","name":"Aflveringer back-center-back","tags":["aflevering"],"stars":0},{"id":"awgbx4e3j6","name":"Afleveringer i fart","tags":["aflevering"],"stars":0},{"id":"wlxwy3yelz","name":"Aflevering til spiller i fart","tags":["aflevering"],"stars":0},{"id":"gxdpdbb7fh","name":"2 og 2 op ad banen","tags":["aflevering","hurtighed"],"stars":0},{"id":"hwk5zy6zmh","name":"2 og 2 op ad banen indvendigt","tags":["aflevering","hurtighed"],"stars":0},{"id":"qnn7v3xbz7","name":"Fløjraket","tags":["aflevering","hurtighed"],"stars":0},{"id":"w3nvsq8opz","name":"Backraket","tags":["aflevering","hurtighed"],"stars":0},{"id":"vjnq6r7teq","name":"Skud fra siddestilling","tags":["skud","styrke"],"stars":0},{"id":"lgpbjq8zbq","name":"Duel på buen","tags":["finter","duel"],"stars":0},{"id":"finterr i åben ramme","name":"finterr i åben ramme","tags":[],"stars":0},{"id":"finter i åben ramme med skrå tilgang","name":"finter i åben ramme med skrå tilgang","tags":[],"stars":0},{"id":"crxb9np2ez","name":"finterbane","tags":["finter","duel"],"stars":0},{"id":"s4w3k1ubvl","name":"Duelspil efter undergang","tags":["finter","duel"],"stars":0},{"id":"m9apd655v0","name":"fintervarianter i keglefelt","tags":["finter","duel"],"stars":5},{"id":"b964q0cygh","name":"Vending i keglefelt - stregspil","tags":["finter","duel"],"stars":5},{"id":"y69a0s9fny","name":"Afvisning","tags":["forsvar"],"stars":0},{"id":"pad5f3qyh7","name":"Stjæl bold eller afvis","tags":["forsvar"],"stars":0},{"id":"xa2v7m0r6i","name":"Færdiggørelse af tackling","tags":["forsvar"],"stars":0},{"id":"qievifizod","name":"Tackling, så parade","tags":["forsvar"],"stars":0},{"id":"586vaj750e","name":"Forsvar af stregspiller","tags":["opvarmning","småspil","forsvar"],"stars":4},{"id":"sviwfa2q4v","name":"Kvadratbold","tags":["opvarmning","småspil","forsvar"],"stars":0},{"id":"jrjxlqk0v5","name":"Stress med udkast","tags":["kontra"],"stars":0},{"id":"uz9evva7h2","name":"2 og 2 med retur","tags":["kontra","returløb"],"stars":0},{"id":"daeit8c0na","name":"3 mod 3 med retur","tags":["kontra","returløb"],"stars":0},{"id":"qirqbmqmpv","name":"3 mod 3 med forsvar i én retning","tags":["kontra"],"stars":0},{"id":"u1fkhwnivt","name":"Kontra med bande","tags":["kontra","returløb"],"stars":0},{"id":"2fvuzl8x62","name":"Duelkontra 2 og 2","tags":["kontra","returløb"],"stars":0},{"id":"sxoqvtjztr","name":"Lange udkast","tags":["kontra"],"stars":0},{"id":"qmfq2rztj2","name":"2 og 2 op ad banen med forsvar","tags":["kontra"],"stars":0},{"id":"9nirj9sqfa","name":"Shootout a la beach","tags":["kontra"],"stars":0},{"id":"bargb82pgw","name":"2 og 2 mod 1 forsvarer","tags":["kontra"],"stars":0},{"id":"0ruqu1ompu","name":"3 mod 3 med recovering defender","tags":["kontra","returløb"],"stars":0},{"id":"jg52lj6ofv","name":"Skud efter stempelbevælgelse","tags":["skud"],"stars":0},{"id":"1508tu6dic","name":"Skud fra undergang","tags":["skud"],"stars":0},{"id":"8rtbq5gwzt","name":"Fløj/back skudøvelse - udad","tags":["skud"],"stars":0},{"id":"uq9cln4i0n","name":"Fløj/back skudøvelse - indad","tags":["skud"],"stars":0},{"id":"9cie97nia0","name":"Skud fra midt efter pres fra back","tags":["skud"],"stars":0},{"id":"03vbs7ownu","name":"Krydsøvelser","tags":["skud"],"stars":0},{"id":"075ls77ci2","name":"Skud fra backs efter tilspil","tags":["skud","aflevering"],"stars":0},{"id":"68ujs23roh","name":"Skudbane","tags":["skud"],"stars":0},{"id":"xkzphowpgk","name":"Skud fra position uden tilspil.","tags":["skud"],"stars":0},{"id":"possp2ofgw","name":"Fløjskud: Skud fra hjørnet","tags":["skud"],"stars":0},{"id":"ancywvjbt8","name":"Fløjskud efter indspring","tags":["skud"],"stars":0},{"id":"8tv33455aq","name":"Fløjskud med glidefald","tags":["skud"],"stars":0},{"id":"m8x2lian02","name":"Assisten","tags":["skud","aflevering"],"stars":0},{"id":"olwne836bf","name":"Back--midt-back retur","tags":["aflevering","skud"],"stars":0},{"id":"srjqgte0qo","name":"fløj-back-midt pres retur","tags":["aflevering","skud"],"stars":0},{"id":"j965o801vd","name":"Basalt 3pres","tags":["aflevering","skud"],"stars":0},{"id":"cm35mwu4wg","name":"3 mod 3 på halvbane","tags":["sammenspil","beslutning","duel"],"stars":5},{"id":"ca5w0mqnf0","name":"4 mod 4 i midtzone på halvbane","tags":["sammenspil","forsvar","taktik"],"stars":0},{"id":"piii2czhuv","name":"Fuldt grundpres","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"dci5m6lnbv","name":"5 mod 5 på halvbane","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"mdq6xuq8ss","name":"6 mod 6 på halvbane","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"rbsgcwy31v","name":"2 mod 2 på halvbane","tags":["sammenspil","beslutning","duel"],"stars":0},{"id":"9pxjufr12x","name":"2 mod 2 på halvbane med streg","tags":["sammenspil","beslutning","forsvar"],"stars":0},{"id":"elchmsv18y","name":"Gode beslutninger - udspil","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"j1xhr28djw","name":"Gode beslutninger - 3 midtblok","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"mbg3wwbmxl","name":"Gode beslutninger - 4 midtblok","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"tjl0mz1x6k","name":"Gode beslutninger - overgang","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"vlqb3mqz0n","name":"Offensivt forsvar","tags":["sammenspil","duel","taktik"],"stars":0},{"id":"e2bcvwoz7w","name":"3 mod 3+1 stationær streg.","tags":["sammenspil","beslutning","forsvar"],"stars":0},{"id":"1zie4yr5vm","name":"Futtog: Fløjovergang med bold","tags":["sammenspil","taktik","forsvar"],"stars":0},{"id":"09bfg44l0m","name":"Futtog: Fløjovergang med bold med streg","tags":["sammenspil","taktik","forsvar"],"stars":0},{"id":"41tnv12fox","name":"Blind overgang","tags":["sammenspil","taktik","forsvar"],"stars":0},{"id":"b9pr4xy87o","name":"Blind overgang med streg","tags":["sammenspil","taktik","forsvar"],"stars":0},{"id":"m7yvsddvtq","name":"5 mod 4 på halvbane","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"260qzjlvlc","name":"4 mod 4 med AK","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"f21q4dt7ju","name":"Rullepres","tags":["sammenspil","beslutning","taktik"],"stars":0},{"id":"za5icqx1yh","name":"Keeper: Skud i bunden af målet","tags":["keeper"],"stars":0},{"id":"a3saa4zrka","name":"Keeper: Skud i toppen af målet","tags":["keeper"],"stars":0},{"id":"m35hvx63g1","name":"Keeper: Skud i siden af målet","tags":["keeper"],"stars":0},{"id":"pvssukrmk4","name":"Keeper: Fløjskud","tags":["keeper"],"stars":0},{"id":"i4ulskrp2n","name":"Keeper: Hurtige bevægelser","tags":["keeper"],"stars":0},{"id":"qf8amp50tq","name":"Keeper: Nærskud","tags":["keeper"],"stars":0},{"id":"hv1t7qgd9d","name":"Keeper: Sidebevægelser","tags":["keeper"],"stars":0},{"id":"cd1lkkmvrv","name":"Kamp med regler","tags":["kamp"],"stars":0},{"id":"kuk107vrcu","name":"Kaoskamp","tags":["kamp"],"stars":0},{"id":"rhksro9ovs","name":"Kamp med bonusbold","tags":["kamp"],"stars":0},{"id":"8mvj4ctmfa","name":"3 kamp","tags":["kamp"],"stars":0},{"id":"ccp5elfhcz","name":"Minikamp","tags":["kamp"],"stars":0},{"id":"1uy8et4926","name":"Faldteknik: Glidefald fra siddende","tags":["faldteknik"],"stars":0},{"id":"amkripafhl","name":"Faldteknik: Glidefald efter kast fra siddende","tags":["faldteknik"],"stars":0},{"id":"n5gxvdelrb","name":"Faldteknik: Glidefald fra stående med let tilløb","tags":["faldteknik"],"stars":0},{"id":"6i116z5gaa","name":"Faldteknik: Glidefald  efter  afslutning i fart","tags":["faldteknik"],"stars":0},{"id":"8upr7m1s7y","name":"Faldteknik: Glidefald  efter  afsætning fra bænk","tags":["faldteknik"],"stars":0},{"id":"ljcuhhruur","name":"Faldteknik: Stikbold med glidefald","tags":["faldteknik","opvarmning"],"stars":0}];
 const INIT_PLYO = [{"id":"wlac604m5u","name":"Kontrollerede hop på samlet","tags":["opvarmning","plyometrik"],"stars":0},{"id":"3yuhnxbid9","name":"Pogo hops","tags":["opvarmning","plyometrik"],"stars":5},{"id":"uhu40pjncf","name":"Hop fra knælende position","tags":["opvarmning","plyometrik"],"stars":0},{"id":"cmujkp8avz","name":"Saksehop","tags":["opvarmning","plyometrik"],"stars":0},{"id":"xbig7wk2r5","name":"Boxjump","tags":["opvarmning","plyometrik"],"stars":0},{"id":"do9tdqkbf4","name":"Boxjump bounce","tags":["opvarmning","plyometrik"],"stars":0},{"id":"v84gndxv5m","name":"Hop i firkant med samlede ben","tags":["opvarmning","plyometrik"],"stars":0},{"id":"5r66lrftu8","name":"Hop i firkant på et ben","tags":["opvarmning","plyometrik"],"stars":0},{"id":"yb1nvdybg6","name":"Skaterhops til siden","tags":["opvarmning","plyometrik"],"stars":0},{"id":"40d39sf2cf","name":"Hop i firkant med sidestep","tags":["opvarmning","plyometrik"],"stars":0},{"id":"5mlj8ae9gt","name":"Pump anklen frem og tilbage","tags":["opvarmning","plyometrik"],"stars":5},{"id":"rq6g2camse","name":"Pump anklen sidevejs","tags":["opvarmning","plyometrik"],"stars":5},{"id":"5hyxx0vhmx","name":"Lang hop, backpedal tilabge","tags":["plyometrik","eksplosion"],"stars":0},{"id":"ow1nbokp4x","name":"Boxjump bounce fremad","tags":["plyometrik","eksplosion"],"stars":0},{"id":"qifgo0du18","name":"3 hop på samlede, kontrolleret","tags":["plyometrik","eksplosion"],"stars":0},{"id":"lk6z6gfvaz","name":"3 hop på samlede, bounce","tags":["plyometrik","eksplosion"],"stars":0},{"id":"y8qyfm66z3","name":"3 hop på samlede, bounce + eksplosion","tags":["plyometrik","eksplosion"],"stars":0},{"id":"1iml2wycme","name":"3 lange og høje hop","tags":["plyometrik","eksplosion"],"stars":0},{"id":"6f631s6mx6","name":"Lange hink","tags":["plyometrik","eksplosion"],"stars":0},{"id":"bhz1612uy8","name":"Sidehop med sprint","tags":["plyometrik","eksplosion"],"stars":0},{"id":"t9wbk2zwrj","name":"Eksplosive sidehops","tags":["plyometrik","eksplosion"],"stars":0},{"id":"7lstm9uhbx","name":"Skaterhops fremad","tags":["plyometrik","eksplosion"],"stars":0},{"id":"bg3xw2bmw5","name":"Sidehop, hop med sprint","tags":["plyometrik","eksplosion"],"stars":0},{"id":"n88pypsfl3","name":"Sidesteps med sprint","tags":["plyometrik","eksplosion"],"stars":0},{"id":"0yot46nzlb","name":"Sprint fra knælende","tags":["plyometrik","eksplosion"],"stars":0},{"id":"1p3t6lraan","name":"Hink: Små hink","tags":["plyometrik","hurtighed"],"stars":5},{"id":"odwybfevc4","name":"Hink: Frem og tilbage","tags":["plyometrik","hurtighed"],"stars":5},{"id":"4kqoxrgfsf","name":"Hink: Ind og ud","tags":["plyometrik","hurtighed"],"stars":5},{"id":"hdwh81k1tl","name":"Hink: Lange hink","tags":["plyometrik","hurtighed"],"stars":5},{"id":"rj9y724t9c","name":"Bane: 3 skridtsforberedelse - samlede ben","tags":["plyometrik","finter"],"stars":0},{"id":"nfgbeky6ih","name":"5 bouncehop på samlet","tags":["plyometrik","hurtighed","eksplosion"],"stars":0},{"id":"egx3t3cplc","name":"Bane: Skaterhops med hække","tags":["plyometrik","hurtighed","eksplosion"],"stars":0},{"id":"kb6qwyzz31","name":"Hink med sidestep","tags":["plyometrik","hurtighed","eksplosion"],"stars":0},{"id":"ovulgpfoh6","name":"Bane: 3 skridtsforberedelse - hink","tags":["plyometrik","finter"],"stars":0},{"id":"g446tw1ea2","name":"Bane: 3 skridtsforberedelse -eksplosive hink","tags":["plyometrik","hurtighed","eksplosion"],"stars":0},{"id":"y7bcw7qdc1","name":"Hop fra siddende med sideafsæt og sprint","tags":["plyometrik","hurtighed","eksplosion"],"stars":5},{"id":"80cp9u32mo","name":"Hop over hæk med sideafsæt og sprint","tags":["plyometrik","hurtighed","eksplosion"],"stars":0},{"id":"etrbo03qxl","name":"Nedhop med 3 skridt","tags":["plyometrik","finter"],"stars":0},{"id":"o7gbsrtyzq","name":"Nedhop med finte modsat skudarm","tags":["plyometrik","finter"],"stars":0},{"id":"c19l9t6vqj","name":"Nedhop med omvendt 3 skridt","tags":["plyometrik","finter"],"stars":0},{"id":"w1ubiex2fe","name":"Armbøjninger","tags":["styrke"],"stars":0},{"id":"9divgq4zc4","name":"Rygbøjninger","tags":["styrke"],"stars":0},{"id":"a38jj92f4u","name":"Reaktionsøvelse","tags":["styrke"],"stars":0},{"id":"7k8f3zhb2k","name":"Mavebøjninger","tags":["styrke"],"stars":0},{"id":"d7s2le4aq3","name":"Lunges","tags":["styrke"],"stars":0},{"id":"bfspnwjhj8","name":"Planken","tags":["styrke"],"stars":0},{"id":"sz9vb1qk5p","name":"Frøen","tags":["styrke","plyometrik","eksplosion"],"stars":1},{"id":"leijx9rl68","name":"Avancerede mavebøjninger","tags":["styrke"],"stars":0},{"id":"ch0njll5k7","name":"Trillebør","tags":["styrke"],"stars":0}];
 
-// ─── GOOGLE SHEETS JWT AUTH ────────────────────────────────────────────────────
-// Minimal JWT/OAuth2 implementation for Sheets API using Web Crypto
-async function getAccessToken() {
-  const cfg = GSHEETS_CONFIG;
-  if (!cfg.clientEmail || cfg.clientEmail.startsWith('__')) return null;
+// ─── KV DATA LAYER ────────────────────────────────────────────────────────────
 
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claim  = {
-    iss: cfg.clientEmail,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
-
-  const b64u = s => btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  const unsigned = `${b64u(header)}.${b64u(claim)}`;
-
-  // Import private key
-  const pem = cfg.privateKey.replace(/-----BEGIN RSA PRIVATE KEY-----|-----END RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n|\r/g,'');
-  const derBuf = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8', derBuf.buffer,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false, ['sign']
-  );
-
-  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  const jwt = `${unsigned}.${sigB64}`;
-
-  const resp = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
-  });
-  const data = await resp.json();
-  return data.access_token || null;
+async function kvFetch(path, method='GET', body=null) {
+  const url = S.hsWorkerUrl || lsLoad('hsWorkerUrl','');
+  const token = S.hsAppToken || lsLoad('hsAppToken','');
+  if (!url) throw new Error('Worker URL ikke sat – gå til Indstillinger');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Token'] = token;
+  const opts = { method, headers };
+  if (body !== null) opts.body = JSON.stringify(body);
+  const res = await fetch(url + path, opts);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
 }
 
-// ─── SHEETS API ───────────────────────────────────────────────────────────────
-const SHEET_ID  = GSHEETS_CONFIG.spreadsheetId;
-const SHEETS    = { trainings:'Træninger', quarters:'Årshjul', hal:'Haltræning', fys:'FysiskTræning' };
-let _token = null;
-let _tokenExp = 0;
-
-async function token() {
-  if (_token && Date.now() < _tokenExp) return _token;
-  _token = await getAccessToken();
-  _tokenExp = Date.now() + 3500000;
-  return _token;
+async function kvLoad() {
+  const data = await kvFetch('/db');
+  return data || {};
 }
 
-async function sheetsGet(range) {
-  const t = await token(); if (!t) return null;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
-  if (!r.ok) return null;
-  const d = await r.json();
-  return d.values || [];
+async function kvSave(patch) {
+  // Read-modify-write: load current, merge patch, save back
+  let current = {};
+  try { current = await kvFetch('/db'); } catch(e) {}
+  const merged = { ...current, ...patch };
+  await kvFetch('/db', 'POST', merged);
 }
 
-async function sheetsUpdate(range, values) {
-  const t = await token(); if (!t) return false;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-  const r = await fetch(url, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ range, majorDimension: 'ROWS', values })
-  });
-  return r.ok;
-}
-
-async function sheetsClear(range) {
-  const t = await token(); if (!t) return false;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`;
-  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${t}` } });
-  return r.ok;
-}
-
-// Ensure all required sheets exist
-async function ensureSheets() {
-  const t = await token(); if (!t) return;
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`, {
-    headers: { Authorization: `Bearer ${t}` }
-  });
-  if (!r.ok) return;
-  const meta = await r.json();
-  const existing = (meta.sheets || []).map(s => s.properties.title);
-  const needed = Object.values(SHEETS).filter(s => !existing.includes(s));
-  if (!needed.length) return;
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requests: needed.map(title => ({ addSheet: { properties: { title } } })) })
-  });
-}
-
-// ─── DATA SERIALIZATION ───────────────────────────────────────────────────────
-// Trainings: each row = JSON string of one training object
-async function loadTrainings() {
-  const rows = await sheetsGet(`${SHEETS.trainings}!A:A`);
-  if (!rows) return null;
-  return rows.map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
-}
-async function saveTrainings(trainings) {
-  await sheetsClear(`${SHEETS.trainings}!A:A`);
-  if (!trainings.length) return true;
-  return sheetsUpdate(`${SHEETS.trainings}!A1`, trainings.map(t => [JSON.stringify(t)]));
-}
-
-// Quarters: each row = JSON string of one quarter
-async function loadQuarters() {
-  const rows = await sheetsGet(`${SHEETS.quarters}!A:A`);
-  if (!rows || !rows.length) return null;
-  return rows.map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
-}
-async function saveQuarters(quarters) {
-  await sheetsClear(`${SHEETS.quarters}!A:A`);
-  return sheetsUpdate(`${SHEETS.quarters}!A1`, quarters.map(q => [JSON.stringify(q)]));
-}
-
-// Catalogs: rows = name, description, stars, tags(;), variants, link, catalog, category
+// ─── CATALOG HELPERS (kept for export/import) ─────────────────────────────────
 function catalogToRows(exercises) {
   return [
-    ['navn','beskrivelse','stjerner','tags','varianter','link','katalog','kategori','id','aldersgruppe'],
+    ['navn','beskrivelse','stjærner','tags','varianter','link','katalog','kategori','id','aldersgruppe'],
     ...exercises.map(e => [
-      e.name||'', e.description||'', e.stars||'',
+      e.name||'', e.description||'', e.stars||0,
       (e.tags||[]).join(';'), e.variants||'', e.link||'',
-      e.catalog||'hal', e.category||'', e.id||uid(),
-      (e.aldersgrupper||[]).join(';') // e.g. "U10;U11;U13" or "" = alle
+      e.catalog||'hal', e.category||'', e.id||'',
+      (e.aldersgrupper||[]).join(';'),
     ])
   ];
 }
-function rowsToCatalog(rows, catalog) {
+
+function rowsToCatalog(rows, defaultCatalog) {
   if (!rows || rows.length < 2) return null;
+  const header = rows[0].map(h => (h||'').toLowerCase().trim());
+  const idx = k => header.indexOf(k);
   return rows.slice(1).map(r => ({
-    id: r[8] || uid(), name: r[0]||'', description: r[1]||'',
-    stars: parseInt(r[2])||0, tags: r[3]?(r[3].split(';').map(x=>x.trim()).filter(Boolean)):[],
-    variants: r[4]||'', link: r[5]||'', catalog: r[6]||catalog, category: r[7]||'',
-    aldersgrupper: r[9]?(r[9].split(';').map(x=>x.trim()).filter(Boolean)):[], // [] = alle aldersgrupper
+    id:           r[idx('id')]          || uid(),
+    name:         r[idx('navn')]        || '',
+    description:  r[idx('beskrivelse')] || '',
+    stars:        parseInt(r[idx('stjærner')])||0,
+    tags:         (r[idx('tags')]||'').split(';').map(x=>x.trim()).filter(Boolean),
+    variants:     r[idx('varianter')]   || '',
+    link:         r[idx('link')]        || '',
+    catalog:      r[idx('katalog')]     || defaultCatalog,
+    category:     r[idx('kategori')]    || '',
+    aldersgrupper:(r[idx('aldersgruppe')]||'').split(';').map(x=>x.trim()).filter(Boolean),
   })).filter(e => e.name);
-}
-async function loadCatalog(sheet) {
-  const rows = await sheetsGet(`${sheet}!A:J`);
-  return rowsToCatalog(rows, sheet === SHEETS.hal ? 'hal' : 'fys');
-}
-async function saveCatalog(sheet, exercises) {
-  await sheetsClear(`${sheet}!A:J`);
-  const rows = catalogToRows(exercises);
-  return sheetsUpdate(`${sheet}!A1`, rows);
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const S = {
   tab: 'traening',
-  syncStatus: 'loading', // loading | ok | syncing | err
+  syncStatus: 'loading',
   quarters:   QUARTERS.map(q=>({...q,themes:['','']})),
   trainings:  [],
   halCatalog: INIT_HAL,
@@ -430,59 +328,55 @@ function lsSave(k, v)   { try { localStorage.setItem('ajaxu11_'+k, JSON.stringif
 let saveTimer = null;
 function scheduleSave(type) {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => pushToSheets(type), 1500);
+  saveTimer = setTimeout(() => pushToKV(type), 1500);
 }
 
-async function pushToSheets(type) {
+async function pushToKV(type) {
   S.syncStatus = 'syncing'; updateSyncUI();
   try {
-    if (type === 'trainings' || type === 'all') await saveTrainings(S.trainings);
-    if (type === 'quarters'  || type === 'all') await saveQuarters(S.quarters);
-    if (type === 'hal'       || type === 'all') await saveCatalog(SHEETS.hal, S.halCatalog);
-    if (type === 'fys'       || type === 'all') await saveCatalog(SHEETS.fys, S.fysCatalog);
+    const patch = {};
+    if (type === 'trainings' || type === 'all') patch.trainings = S.trainings;
+    if (type === 'quarters'  || type === 'all') patch.quarters  = S.quarters;
+    if (type === 'hal'       || type === 'all') patch.hal       = S.halCatalog;
+    if (type === 'fys'       || type === 'all') patch.fys       = S.fysCatalog;
+    await kvSave(patch);
     S.syncStatus = 'ok'; updateSyncUI();
   } catch(e) {
     S.syncStatus = 'err'; updateSyncUI();
-    toast('Synkronisering fejlede', 'err');
+    toast('Synkronisering fejlede: ' + e.message, 'err');
   }
 }
 
-async function loadFromSheets() {
+async function loadFromKV() {
   S.syncStatus = 'loading'; render();
   try {
-    await ensureSheets();
-    const [trainings, quarters, hal, fys] = await Promise.all([
-      loadTrainings(), loadQuarters(),
-      loadCatalog(SHEETS.hal), loadCatalog(SHEETS.fys)
-    ]);
-    if (trainings !== null) S.trainings  = trainings;
-    if (quarters !== null) {
-      // Merge saved themes into QUARTERS template (preserves new periods/labels)
+    const data = await kvLoad();
+    if (data.trainings) S.trainings = data.trainings;
+    if (data.quarters) {
       S.quarters = QUARTERS.map(q => {
-        const saved = quarters.find(sq => sq.id === q.id);
+        const saved = data.quarters.find(sq => sq.id === q.id);
         return saved ? {...q, themes: saved.themes || ['','']} : {...q, themes: ['','']};
       });
     }
-    // Google Sheets er kilden. INIT_HAL/INIT_PLYO bruges kun hvis Sheets er tomt (ny installation).
-    if (hal !== null) { S.halCatalog = hal; }
-    else { await saveCatalog(SHEETS.hal, S.halCatalog); toast('Haltræningskatalog oprettet i regneark', 'info'); }
-    if (fys !== null) { S.fysCatalog = fys; }
-    else { await saveCatalog(SHEETS.fys, S.fysCatalog); toast('Fysisk træningskatalog oprettet i regneark', 'info'); }
+    if (data.hal && data.hal.length) { S.halCatalog = data.hal; }
+    else { await pushToKV('hal'); toast('Haltræningskatalog gemt i KV', 'info'); }
+    if (data.fys && data.fys.length) { S.fysCatalog = data.fys; }
+    else { await pushToKV('fys'); toast('Fysisk træningskatalog gemt i KV', 'info'); }
     S.syncStatus = 'ok';
   } catch(e) {
     S.syncStatus = 'err';
-    toast('Kunne ikke forbinde til Google Sheets', 'err');
+    toast('Kunne ikke forbinde til Worker: ' + e.message, 'err');
   }
   render();
 }
 
 function updateSyncUI() {
-  const dot  = document.getElementById('syncDot');
-  const lbl  = document.getElementById('syncLbl');
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLbl');
   if (!dot || !lbl) return;
   const map = { ok:['ok','Synkroniseret'], syncing:['syncing','Gemmer…'], err:['err','Fejl'], loading:['syncing','Indlæser…'] };
   const [cls, txt] = map[S.syncStatus] || ['',''];
-  dot.className = `sync-dot ${cls}`;
+  dot.className = 'sync-dot ' + cls;
   lbl.textContent = txt;
 }
 
@@ -1242,37 +1136,36 @@ function html_indstillinger_tab() {
   return '<div style="max-width:640px;margin:0 auto;">' +
     '<h1 style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;margin-bottom:20px;">INDSTILLINGER</h1>' +
 
-    '<div class="card" style="margin-bottom:14px;">' +
-    '<div class="card-header"><span class="card-title">Google Sheets</span></div>' +
-    '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div class="form-group" style="margin:0;"><label>Spreadsheet ID</label>' +
-    '<div style="display:flex;gap:8px;"><input id="cfg-sheets-id" value="'+esc(S.sheetsId||'')+'" placeholder="1BxiM..." style="flex:1;font-family:monospace;font-size:12px;">' +
-    '<button class="btn btn-secondary btn-xs" id="cfg-sheets-save">Gem</button></div>' +
-    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Finds i URL’en på dit Google Sheets: docs.google.com/spreadsheets/d/<strong>ID</strong>/edit</p>' +
-    '</div></div></div>' +
+    '<div class="card" style="margin-bottom:14px;background:rgba(34,197,94,.05);border-color:rgba(34,197,94,.2);">' +
+    '<div class="card-header"><span class="card-title" style="color:var(--green);">&#x2705; Cloudflare KV</span></div>' +
+    '<div class="card-body">' +
+    '<p style="font-size:13px;color:var(--text2);">Data gemmes i Cloudflare KV via din Holdsport Worker. Ingen Google Sheets krævet.</p>' +
+    '</div></div>' +
 
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-header"><span class="card-title">Holdsport</span></div>' +
     '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div class="form-group" style="margin:0;"><label>Holdsport Worker URL</label>' +
+    '<div class="form-group" style="margin:0;"><label>Worker URL</label>' +
     '<div style="display:flex;gap:8px;"><input id="cfg-hs-url" value="'+esc(S.hsWorkerUrl||'')+'" placeholder="https://holdsport-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
     '<button class="btn btn-secondary btn-xs" id="cfg-hs-save">Gem</button></div>' +
     '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Holdsport API.</p>' +
-    '</div></div>' +
+    '</div>' +
     '<div class="form-group" style="margin:0;"><label>APP_TOKEN</label>' +
     '<div style="display:flex;gap:8px;"><input id="cfg-hs-token" value="'+esc(S.hsAppToken||'')+'" placeholder="Hemmelig token" type="password" style="flex:1;font-family:monospace;font-size:12px;">' +
     '<button class="btn btn-secondary btn-xs" id="cfg-hs-token-save">Gem</button></div>' +
-    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">APP_TOKEN fra din Holdsport Cloudflare Worker.</p>' +
-    '</div></div></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">APP_TOKEN fra din Holdsport Cloudflare Worker (til adgangsbeskyttelse).</p>' +
+    '</div>' +
+    '</div></div>' +
 
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-header"><span class="card-title">AI</span></div>' +
     '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div class="form-group" style="margin:0;"><label>AI Worker URL</label>' +
+    '<div class="form-group" style="margin:0;"><label>Worker URL</label>' +
     '<div style="display:flex;gap:8px;"><input id="cfg-ai-url" value="'+esc(S.aiWorkerUrl||'')+'" placeholder="https://ajax-ai-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
     '<button class="btn btn-secondary btn-xs" id="cfg-ai-save">Gem</button></div>' +
     '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Anthropic API til AI-beskrivelser.</p>' +
-    '</div></div></div>' +
+    '</div>' +
+    '</div></div>' +
 
     '</div>';
 }
@@ -1810,7 +1703,7 @@ function toast(msg,type='ok'){const c=ge('toastWrap');const d=document.createEle
 // Load XLSX lib then start
 const s=document.createElement('script');
 s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-s.onload=()=>loadFromSheets();
+s.onload=()=>loadFromKV();
 document.head.appendChild(s);
 
 // Expose internals for test runner
