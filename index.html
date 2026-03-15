@@ -316,7 +316,7 @@ const S = {
   trainings:  [],
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
-  templates:  lsLoad('templates', []),
+  templates:  [],
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), kvWorkerUrl: lsLoad('kvWorkerUrl',''), kvAppToken: lsLoad('kvAppToken',''), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
@@ -336,7 +336,7 @@ async function pushToKV(type) {
   S.syncStatus = 'syncing'; updateSyncUI();
   try {
     const patch = {};
-    if (type === 'users'     || type === 'all') patch.users     = S.users || [];
+    if (type === 'templates' || type === 'all') patch.templates = S.templates || [];
     if (type === 'users'     || type === 'all') patch.users     = S.users || [];
     if (type === 'trainings' || type === 'all') patch.trainings = S.trainings;
     if (type === 'quarters'  || type === 'all') patch.quarters  = S.quarters;
@@ -354,17 +354,23 @@ async function loadFromKV() {
   S.syncStatus = 'loading'; render();
   try {
     const data = await kvLoad();
-    if (data.users)     S.users     = data.users;
-    if (data.trainings) S.trainings = data.trainings;
+    // Helper: parse value if it's a double-encoded JSON string
+    const parse = v => (typeof v === 'string') ? JSON.parse(v) : v;
+    if (data.templates) S.templates = parse(data.templates);
+    if (data.users)     S.users     = parse(data.users);
+    if (data.trainings) S.trainings = parse(data.trainings);
     if (data.quarters) {
+      const quarters = parse(data.quarters);
       S.quarters = QUARTERS.map(q => {
-        const saved = data.quarters.find(sq => sq.id === q.id);
+        const saved = quarters.find(sq => sq.id === q.id);
         return saved ? {...q, themes: saved.themes || ['','']} : {...q, themes: ['','']};
       });
     }
-    if (data.hal && data.hal.length) { S.halCatalog = data.hal; }
+    const hal = data.hal ? parse(data.hal) : null;
+    const fys = data.fys ? parse(data.fys) : null;
+    if (hal && hal.length) { S.halCatalog = hal; }
     else { await pushToKV('hal'); toast('Haltræningskatalog gemt i KV', 'info'); }
-    if (data.fys && data.fys.length) { S.fysCatalog = data.fys; }
+    if (fys && fys.length) { S.fysCatalog = fys; }
     else { await pushToKV('fys'); toast('Fysisk træningskatalog gemt i KV', 'info'); }
     S.syncStatus = 'ok';
   } catch(e) {
@@ -1786,9 +1792,9 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   on('[data-clone]',  el=>{const t=S.trainings.find(x=>x.id===el.dataset.clone);if(!t)return;const c=JSON.parse(JSON.stringify(t));c.id=uid();c.archived=false;c.date='';c.stars=0;c.title=(c.title||'Træning')+' (kopi)';S.draft=c;S.tab='traening';render();});
   on('[data-restore]',el=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===el.dataset.restore);if(t){t.archived=false;scheduleSave('trainings');toast('Genskabt');render();}}));
   on('[data-deltrain]',el=>requireUnlock(()=>{if(confirm('Slet permanent?')){S.trainings=S.trainings.filter(x=>x.id!==el.dataset.deltrain);scheduleSave('trainings');render();}}));
-  ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});lsSave('templates',S.templates);toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
+  ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});scheduleSave('templates');toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
   on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
-  on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);lsSave('templates',S.templates);render();});
+  on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);scheduleSave('templates');render();});
   ge('mclose')?.addEventListener('click',()=>{S.modal=null;render();});
   document.querySelectorAll('.mclose').forEach(el=>el.addEventListener('click',()=>{S.modal=null;render();}));
   ge('moverlay')?.addEventListener('click',e=>{if(e.target.id==='moverlay'){S.modal=null;render();}});
