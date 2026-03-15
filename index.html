@@ -312,12 +312,13 @@ const S = {
   tab: 'traening',
   syncStatus: 'loading',
   quarters:   QUARTERS.map(q=>({...q,themes:['','']})),
+  users:      [],
   trainings:  [],
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
-  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false, tipDismissed: lsLoad('tipDismissed', false),
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
+  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -335,6 +336,8 @@ async function pushToKV(type) {
   S.syncStatus = 'syncing'; updateSyncUI();
   try {
     const patch = {};
+    if (type === 'users'     || type === 'all') patch.users     = S.users || [];
+    if (type === 'users'     || type === 'all') patch.users     = S.users || [];
     if (type === 'trainings' || type === 'all') patch.trainings = S.trainings;
     if (type === 'quarters'  || type === 'all') patch.quarters  = S.quarters;
     if (type === 'hal'       || type === 'all') patch.hal       = S.halCatalog;
@@ -351,6 +354,7 @@ async function loadFromKV() {
   S.syncStatus = 'loading'; render();
   try {
     const data = await kvLoad();
+    if (data.users)     S.users     = data.users;
     if (data.trainings) S.trainings = data.trainings;
     if (data.quarters) {
       S.quarters = QUARTERS.map(q => {
@@ -413,8 +417,8 @@ function html_topbar() {
       <div class="logo-text"><div class="club">Ajax</div><div class="team">U11 Træning</div></div>
     </div>
     <nav class="nav-tabs">${tabs.map(t=>`<button class="nav-tab${S.tab===t.id?' active':''}" data-tab="${t.id}">${t.l}</button>`).join('')}</nav>
-    <button id="unlockBtn" class="btn ${S.unlocked?'btn-secondary':'btn-ghost'} btn-xs" style="margin-left:12px;font-size:12px;gap:5px;display:flex;align-items:center;" title="${S.unlocked?'Lås igen':'Lås op for redigering'}">
-      ${S.unlocked?'🔓 Ulåst':'🔒 Låst'}
+    <button id="loginBtn" class="btn ${S.currentUser?'btn-secondary':'btn-ghost'} btn-xs" style="margin-left:12px;font-size:12px;gap:5px;display:flex;align-items:center;">
+      ${S.currentUser ? '👤 ' + esc(S.currentUser.name) : '🔒 Log ind'}
     </button>
     <div class="sync-indicator" title="Version __BUILD_TS__">
       <div class="sync-dot" id="syncDot"></div>
@@ -425,7 +429,7 @@ function html_topbar() {
 
 // ─── ÅRSHJUL ──────────────────────────────────────────────────────────────────
 function html_aarshjul_tab() {
-  const locked = S.aarshjulLocked;
+  const locked = isAarshjulLocked();
   return `<div style="max-width:860px;margin:0 auto;">
     <div class="flex-between" style="margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
@@ -441,7 +445,7 @@ function html_aarshjul_tab() {
         ${locked?'🔒 Låst':'🔓 Ulåst'}
       </button>
     </div>
-    ${locked?`<div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:6px;padding:8px 14px;font-size:12px;color:#fbbf24;margin-bottom:16px;">🔒 Årshjul er låst – klik "Låst" øverst for at redigere</div>`:''}
+    ${locked?`<div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:6px;padding:8px 14px;font-size:12px;color:#fbbf24;margin-bottom:16px;">🔒 Årshjul er låst – log ind som Årgangsansvarlig for at redigere</div>`:''}
     <div class="grid-2 aarshjul-grid">${S.quarters.map((q,qi)=>`
       <div class="q-card">
         <div class="q-head" style="background:${q.color}18;border-bottom:2px solid ${q.color}20;">
@@ -467,7 +471,7 @@ function html_aarshjul_tab() {
 function html_traening_tab() {
   if (S.draft) return html_editor();
   const upcoming = S.trainings.filter(t=>!t.archived).sort((a,b)=>{if(!a.date&&!b.date)return 0;if(!a.date)return 1;if(!b.date)return -1;return a.date>b.date?1:-1;});
-  const tip = !S.tipDismissed && !S.unlocked ? `
+  const tip = !S.tipDismissed && !S.currentUser ? `
     <div id="unlock-tip" style="background:rgba(200,16,46,0.08);border:1px solid rgba(200,16,46,0.25);border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
       <span style="font-size:22px;flex-shrink:0;">🔒</span>
       <div style="flex:1;">
@@ -531,14 +535,17 @@ function html_editor() {
   const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
   const themes=S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
   return `<div style="max-width:980px;margin:0 auto;">
-    <div class="flex-row" style="margin-bottom:18px;flex-wrap:wrap;gap:8px;">
-      <button class="btn btn-ghost" id="cancelBtn">← Tilbage</button>
-      <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
-      <div class="flex-row" style="margin-left:auto;">
-        <button class="btn btn-ghost" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
-        <button class="btn btn-secondary" id="saveTmplBtn">💾 Skabelon</button>
-        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost" id="archTBtn">Arkivér</button><button class="btn btn-danger" id="delTBtn">Slet</button>`:''}
-        <button class="btn btn-primary" id="saveTBtn">Gem træning</button>
+    <div style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-ghost btn-sm" id="cancelBtn">← Tilbage</button>
+        <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
+        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Skabelon</button>
+        <button class="btn btn-secondary btn-sm" id="loadTmplBtn">📋 Indlæs øvelser</button>
+        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn">Arkivér</button><button class="btn btn-danger btn-sm" id="delTBtn">Slet</button>`:''}
+        <button class="btn btn-primary btn-sm" id="saveTBtn" style="margin-left:auto;">Gem træning</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -789,6 +796,11 @@ function html_modal() {
   if(m.type==='exDetail') return html_m_exdetail(m.ex);
   if(m.type==='custEx')  return html_m_custem(m.si);
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
+  if(m.type==='loadTmpl')    return html_m_load_tmpl();
+  if(m.type==='login')       return html_m_login(m.afterLogin);
+  if(m.type==='manageUsers') return html_m_manage_users();
+  if(m.type==='login')       return html_m_login(m.afterLogin);
+  if(m.type==='manageUsers') return html_m_manage_users();
   if(m.type==='hsDatePick')  return html_m_hs_datepick();
   if(m.type==='hsSettings') return html_m_hs_settings();
   if(m.type==='hsLoading')  return html_m_hs_loading();
@@ -967,6 +979,90 @@ Krav:
   }
 }
 
+
+
+
+function html_m_load_tmpl() {
+  if (!S.templates || !S.templates.length) {
+    return mwrap(mhead('Indlæs øvelser fra skabelon') +
+      '<div class="modal-body"><p style="color:var(--text3);text-align:center;padding:20px;">Ingen skabeloner gemt endnu.<br>Gem en træning som skabelon først.</p></div>' +
+      '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>', 'modal-sm');
+  }
+  let h = '<div class="modal-body">';
+  h += '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Vælg en skabelon – <strong>kun øvelserne</strong> kopieres ind. Dato, tid, sted og trænere ændres ikke.</p>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+  S.templates.forEach(function(t) {
+    var secCount = (t.sections||[]).length;
+    var exCount  = (t.sections||[]).reduce(function(n,s){ return n+(s.exercises||[]).length; }, 0);
+    h += '<button class="list-item" data-usetmplsecs="'+esc(t.id)+'">';
+    h += '<div class="list-title">'+esc(t.name)+'</div>';
+    h += '<div class="list-meta">'+secCount+' sektioner · '+exCount+' øvelser</div>';
+    h += '</button>';
+  });
+  h += '</div></div>';
+  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button></div>';
+  return mwrap(mhead('Indlæs øvelser fra skabelon') + h, 'modal-sm');
+}
+
+// ─── LOGIN & USER MODALS ──────────────────────────────────────────────────────
+
+function html_m_login(afterLogin) {
+  const users = (S.users || []);
+  if (!users.length) {
+    return mwrap(mhead('Log ind') + '<div class="modal-body">' +
+      '<p style="font-size:13px;color:var(--text2);text-align:center;padding:16px 0;">Ingen brugere oprettet endnu.<br>Kontakt din årgangsansvarlig.</p>' +
+      '</div><div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>', 'modal-sm');
+  }
+  let h = '<div class="modal-body">';
+  h += '<div class="form-group"><label>Navn</label><select id="login-name" style="width:100%;">';
+  h += '<option value="">Vælg navn…</option>';
+  users.forEach(function(u) { h += '<option value="' + esc(u.id) + '">' + esc(u.name) + ' (' + roleLbl(u.role) + ')</option>'; });
+  h += '</select></div>';
+  h += '<div class="form-group"><label>PIN</label>';
+  h += '<input id="login-pin" type="password" maxlength="6" placeholder="••••" style="letter-spacing:.3em;font-size:20px;text-align:center;" autofocus></div>';
+  h += '<div id="login-err" style="color:var(--red);font-size:12px;text-align:center;min-height:18px;"></div>';
+  h += '</div>';
+  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button>' +
+       '<button class="btn btn-primary" id="login-submit">Log ind</button></div>';
+  // Store afterLogin ref
+  window._loginAfter = afterLogin || null;
+  return mwrap(mhead('Log ind') + h, 'modal-sm');
+}
+
+function roleLbl(r) {
+  return r === 'admin' ? 'Årgangsansvarlig' : r === 'trainer' ? 'Træner' : 'Gæst';
+}
+
+function html_m_manage_users() {
+  const users = S.users || [];
+  let h = '<div class="modal-body">';
+  h += '<div style="max-height:40vh;overflow-y:auto;margin-bottom:12px;">';
+  if (!users.length) {
+    h += '<p style="color:var(--text3);text-align:center;padding:16px;">Ingen brugere endnu</p>';
+  }
+  users.forEach(function(u, i) {
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">';
+    h += '<div style="flex:1;"><div style="font-weight:600;">' + esc(u.name) + '</div>';
+    h += '<div style="font-size:11px;color:var(--text2);">' + roleLbl(u.role) + '</div></div>';
+    h += '<button class="btn btn-ghost btn-xs" data-edituser="' + i + '">✎ Ret</button>';
+    h += '<button class="btn btn-danger btn-xs" data-deluser="' + esc(u.id) + '">✕</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<hr class="divider">';
+  h += '<div style="font-weight:600;font-size:13px;margin-bottom:10px;" id="user-form-title">Tilføj bruger</div>';
+  h += '<div class="grid-2">';
+  h += '<div class="form-group" style="margin:0;"><label>Navn</label><input id="uf-name" placeholder="Fornavn"></div>';
+  h += '<div class="form-group" style="margin:0;"><label>PIN (4-6 cifre)</label><input id="uf-pin" type="password" maxlength="6" placeholder="••••"></div>';
+  h += '</div>';
+  h += '<div class="form-group" style="margin-top:8px;"><label>Rolle</label>';
+  h += '<select id="uf-role"><option value="trainer">Træner</option><option value="admin">Årgangsansvarlig</option></select></div>';
+  h += '<input type="hidden" id="uf-id" value="">';
+  h += '</div>';
+  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
+       '<button class="btn btn-primary" id="uf-save">Gem bruger</button></div>';
+  return mwrap(mhead('Brugere'), h, 'modal-sm');
+}
 
 // ─── HOLDSPORT INTEGRATION ────────────────────────────────────────────────────
 
@@ -1194,6 +1290,16 @@ function html_indstillinger_tab() {
     '</div>' +
     '</div></div>' +
 
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
+    '<span class="card-title">Brugere</span>' +
+    (canAdmin() ? '<button class="btn btn-primary btn-xs" id="manageUsersBtn">Administrér</button>' : '<span style="font-size:12px;color:var(--text3);">Kræver Årgangsansvarlig</span>') +
+    '</div>' +
+    '<div class="card-body">' +
+    (S.users||[]).map(u => '<div style="padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;"><span style="font-weight:600;">'+esc(u.name)+'</span><span style="font-size:11px;color:var(--text2);">'+roleLbl(u.role)+'</span></div>').join('') +
+    ((S.users||[]).length===0?'<p style="font-size:12px;color:var(--text3);">Ingen brugere</p>':'') +
+    '</div></div>' +
+
     '</div>';
 }
 
@@ -1205,24 +1311,45 @@ document.addEventListener('click', e=>{
     S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});
     S.modal=null;render();
   }
+  // Load sections from template into existing draft
+  const tsel=e.target.closest('[data-usetmplsecs]');
+  if(tsel && S.draft){
+    const tmpl=S.templates.find(t=>t.id===tsel.dataset.usetmplsecs);
+    if(tmpl && tmpl.sections){
+      const fresh=JSON.parse(JSON.stringify(tmpl.sections)).map(s=>{
+        // Clear done-flags on exercises
+        (s.exercises||[]).forEach(ex=>ex.done=false);
+        return s;
+      });
+      S.draft.sections=fresh;
+    }
+    S.modal=null; render();
+    toast('\u00d8velser indl\u00e6st fra skabelon \u2713');
+  }
 });
 
-function requireUnlock(action) {
-  if (S.unlocked) { action(); return; }
-  const pw = prompt('Indtast kodeord:');
-  if (pw === null) return;
-  if (pw.trim() === 'Ajax321') { S.unlocked = true; render(); action(); }
-  else { toast('Forkert kodeord', 'err'); }
+// ─── ROLE HELPERS ────────────────────────────────────────────────────────────
+function userRole() { return (S.currentUser && S.currentUser.role) || 'guest'; }
+function canEdit()  { return userRole() === 'trainer' || userRole() === 'admin'; }
+function canAdmin() { return userRole() === 'admin'; }
+function isAarshjulLocked() { return !canAdmin(); }
+
+function requireRole(minRole, action) {
+  const ok = minRole === 'trainer' ? canEdit() : canAdmin();
+  if (ok) { action(); return; }
+  if (!S.currentUser) { S.modal = { type: 'login', afterLogin: action }; render(); }
+  else { toast('Du har ikke adgang til dette', 'err'); }
 }
+function requireUnlock(action) { requireRole('trainer', action); }
 function bind() {
   on('[data-tab]',    el=>{S.tab=el.dataset.tab;render();});
-  ge('aarshjulLockBtn')?.addEventListener('click',()=>{S.aarshjulLocked=!S.aarshjulLocked;render();});
+  // aarshjulLockBtn now handled by login state
   on('[data-agegroup]', el=>{
     S.ageGroup = el.dataset.agegroup;
     lsSave('ageGroup', S.ageGroup);
     render();
   });
-  on('[data-agegroup]', el=>{if(S.aarshjulLocked)return;S.ageGroup=el.dataset.agegroup;lsSave('ageGroup',S.ageGroup);render();});
+  on('[data-agegroup]', el=>{if(isAarshjulLocked())return;S.ageGroup=el.dataset.agegroup;lsSave('ageGroup',S.ageGroup);render();});
   on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
   on('[data-qdel]',   el=>{const[qi,ti]=el.dataset.qdel.split('-').map(Number);S.quarters[qi].themes.splice(ti,1);scheduleSave('quarters');render();});
   live('[data-qt]',   el=>{if(S.aarshjulLocked)return;const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
@@ -1234,15 +1361,91 @@ function bind() {
   ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
+  ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
   ge('cfg-hs-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-token')?.value?.trim();S.hsAppToken=v||'';lsSave('hsAppToken',S.hsAppToken);toast('APP_TOKEN gemt ✓');});
   ge('cfg-hs-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-url')?.value?.trim().replace(/\/$/,'');S.hsWorkerUrl=v||'';lsSave('hsWorkerUrl',S.hsWorkerUrl);toast('Holdsport Worker URL gemt ✓');});
   ge('cfg-ai-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-ai-url')?.value?.trim().replace(/\/$/,'');S.aiWorkerUrl=v||'';lsSave('aiWorkerUrl',S.aiWorkerUrl);toast('AI Worker URL gemt ✓');});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
+
+  // ── LOGIN ──
+  if(!document._loginBound){document._loginBound=true;document.addEventListener('click',e=>{
+    // Submit login
+    if(e.target.closest('#login-submit')){
+      const uid2 = document.getElementById('login-name')?.value;
+      const pin  = document.getElementById('login-pin')?.value?.trim();
+      const errEl= document.getElementById('login-err');
+      const user = (S.users||[]).find(u=>u.id===uid2);
+      if(!user){ if(errEl) errEl.textContent='Vælg et navn'; return; }
+      if(user.pin !== pin){ if(errEl) errEl.textContent='Forkert PIN'; return; }
+      S.currentUser = {id:user.id, name:user.name, role:user.role};
+      lsSave('currentUser', S.currentUser);
+      const after = window._loginAfter; window._loginAfter = null;
+      S.modal = null; render();
+      toast('Velkommen, '+user.name+' ✓');
+      if(after) after();
+      return;
+    }
+    // Allow Enter key in PIN field to submit
+    if(e.target.closest('#login-pin')) return;
+    // Manage users button in settings
+    if(e.target.closest('#manageUsersBtn')){ S.modal={type:'manageUsers'}; render(); return; }
+    // Delete user
+    const delUser = e.target.closest('[data-deluser]');
+    if(delUser && canAdmin()){
+      const id=delUser.dataset.deluser;
+      if(confirm('Slet bruger?')){
+        S.users=(S.users||[]).filter(u=>u.id!==id);
+        scheduleSave('users'); render();
+      }
+      return;
+    }
+    // Edit user - populate form
+    const editUser = e.target.closest('[data-edituser]');
+    if(editUser && canAdmin()){
+      const u=(S.users||[])[parseInt(editUser.dataset.edituser)];
+      if(u){
+        const n=document.getElementById('uf-name'); if(n) n.value=u.name;
+        const p=document.getElementById('uf-pin');  if(p) p.value=u.pin;
+        const r=document.getElementById('uf-role'); if(r) r.value=u.role;
+        const i=document.getElementById('uf-id');   if(i) i.value=u.id;
+        const t=document.getElementById('user-form-title'); if(t) t.textContent='Ret bruger';
+      }
+      return;
+    }
+    // Save user
+    if(e.target.closest('#uf-save') && canAdmin()){
+      const name=document.getElementById('uf-name')?.value?.trim();
+      const pin =document.getElementById('uf-pin')?.value?.trim();
+      const role=document.getElementById('uf-role')?.value;
+      const eid =document.getElementById('uf-id')?.value;
+      if(!name){ toast('Navn mangler','err'); return; }
+      if(!pin || pin.length < 4){ toast('PIN skal være mindst 4 cifre','err'); return; }
+      if(!/^\d+$/.test(pin)){ toast('PIN må kun indeholde tal','err'); return; }
+      if(!S.users) S.users=[];
+      if(eid){
+        const u=S.users.find(u=>u.id===eid);
+        if(u){ u.name=name; u.pin=pin; u.role=role; }
+      } else {
+        S.users.push({id:uid(), name, pin, role});
+      }
+      scheduleSave('users');
+      S.modal={type:'manageUsers'}; render();
+      toast('Bruger gemt ✓');
+      return;
+    }
+  });}
+
+  // Allow Enter in PIN to submit
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && document.getElementById('login-pin') === document.activeElement){
+      document.getElementById('login-submit')?.click();
+    }
+  });
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
-  ge('unlockBtn')?.addEventListener('click',()=>{
-    if(S.unlocked){S.unlocked=false;render();toast('Låst igen');}
-    else requireUnlock(()=>{toast('Låst op ✓');});
+  ge('loginBtn')?.addEventListener('click',()=>{
+    if(S.currentUser){S.currentUser=null;lsSave('currentUser',null);render();toast('Logget ud');}
+    else {S.modal={type:'login',afterLogin:null};render();}
   });
   ge('cancelBtn')?.addEventListener('click',()=>{S.draft=null;render();});
   ge('archTBtn')?.addEventListener('click',()=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===S.draft.id);if(t){t.archived=true;S.draft=null;scheduleSave('trainings');toast('Arkiveret');render();}}));
