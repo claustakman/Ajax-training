@@ -23,38 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject secrets into app
-        env:
-          CLIENT_EMAIL: ${{ secrets.SHEETS_CLIENT_EMAIL }}
-          PRIVATE_KEY: ${{ secrets.SHEETS_PRIVATE_KEY }}
-          SPREADSHEET_ID: ${{ secrets.SHEETS_SPREADSHEET_ID }}
+      - name: Inject build timestamp
         run: |
           python3 - <<'PYEOF'
-          import os, datetime
-
-          email  = os.environ['CLIENT_EMAIL']
-          key    = os.environ['PRIVATE_KEY']
-          sid    = os.environ['SPREADSHEET_ID']
-
-          # Normalize newlines in private key
-          key = key.replace('\\n', '\n')
-
+          import datetime
           with open('index.html', 'r') as f:
               html = f.read()
-
-          html = html.replace('__SHEETS_CLIENT_EMAIL__', email)
-          html = html.replace('__SHEETS_SPREADSHEET_ID__', sid)
-          key_escaped = key.replace('\\', '\\\\').replace('`', '\\`')
-          html = html.replace('__SHEETS_PRIVATE_KEY__', key_escaped)
-
-          # Inject build timestamp for cache busting
           ts = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
           html = html.replace('__BUILD_TS__', ts)
-
           with open('index.html', 'w') as f:
               f.write(html)
-
-          print(f"Injection complete, build: {ts}")
+          print(f"Build timestamp: {ts}")
           PYEOF
 
       - name: Setup Pages
