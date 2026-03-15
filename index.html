@@ -419,7 +419,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, unlocked: false, tipDismissed: lsLoad('tipDismissed', false),
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, aarshjulLocked: true, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -1081,7 +1081,9 @@ let _hsShowAll = false;
 async function hsFetch(path) {
   const url = S.hsWorkerUrl;
   if (!url) throw new Error('Worker URL ikke sat – gå til indstillinger');
-  const res = await fetch(url + path, { headers: { 'Accept': 'application/json' } });
+  const headers = { 'Accept': 'application/json' };
+  if (S.hsAppToken) headers['X-Token'] = S.hsAppToken;
+  const res = await fetch(url + path, { headers });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
@@ -1256,6 +1258,11 @@ function html_indstillinger_tab() {
     '<div style="display:flex;gap:8px;"><input id="cfg-hs-url" value="'+esc(S.hsWorkerUrl||'')+'" placeholder="https://holdsport-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
     '<button class="btn btn-secondary btn-xs" id="cfg-hs-save">Gem</button></div>' +
     '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Holdsport API.</p>' +
+    '</div></div>' +
+    '<div class="form-group" style="margin:0;"><label>APP_TOKEN</label>' +
+    '<div style="display:flex;gap:8px;"><input id="cfg-hs-token" value="'+esc(S.hsAppToken||'')+'" placeholder="Hemmelig token" type="password" style="flex:1;font-family:monospace;font-size:12px;">' +
+    '<button class="btn btn-secondary btn-xs" id="cfg-hs-token-save">Gem</button></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">APP_TOKEN fra din Holdsport Cloudflare Worker.</p>' +
     '</div></div></div>' +
 
     '<div class="card" style="margin-bottom:14px;">' +
@@ -1308,6 +1315,7 @@ function bind() {
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
+  ge('cfg-hs-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-token')?.value?.trim();S.hsAppToken=v||'';lsSave('hsAppToken',S.hsAppToken);toast('APP_TOKEN gemt ✓');});
   ge('cfg-hs-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-url')?.value?.trim().replace(/\/$/,'');S.hsWorkerUrl=v||'';lsSave('hsWorkerUrl',S.hsWorkerUrl);toast('Holdsport Worker URL gemt ✓');});
   ge('cfg-ai-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-ai-url')?.value?.trim().replace(/\/$/,'');S.aiWorkerUrl=v||'';lsSave('aiWorkerUrl',S.aiWorkerUrl);toast('AI Worker URL gemt ✓');});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
