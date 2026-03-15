@@ -251,9 +251,9 @@ const INIT_PLYO = [{"id":"wlac604m5u","name":"Kontrollerede hop på samlet","tag
 // ─── KV DATA LAYER ────────────────────────────────────────────────────────────
 
 async function kvFetch(path, method='GET', body=null) {
-  const url = S.hsWorkerUrl || lsLoad('hsWorkerUrl','');
-  const token = S.hsAppToken || lsLoad('hsAppToken','');
-  if (!url) throw new Error('Worker URL ikke sat – gå til Indstillinger');
+  const url = S.kvWorkerUrl || lsLoad('kvWorkerUrl','');
+  const token = S.kvAppToken || lsLoad('kvAppToken','');
+  if (!url) throw new Error('KV Worker URL ikke sat – gå til Indstillinger');
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['X-Token'] = token;
   const opts = { method, headers };
@@ -318,7 +318,7 @@ const S = {
   fysCatalog: INIT_PLYO,
   templates:  lsLoad('templates', []),
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
-  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
+  catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), kvWorkerUrl: lsLoad('kvWorkerUrl',''), kvAppToken: lsLoad('kvAppToken',''), hsWorkerUrl: lsLoad('hsWorkerUrl',''), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
 
@@ -1255,44 +1255,44 @@ function hsImportSelected() {
 
 
 // ─── INDSTILLINGER ────────────────────────────────────────────────────────────
+function cfg_field(id, label, val, placeholder, note, btnId, type) {
+  return '<div class="form-group" style="margin:0;"><label>' + label + '</label>' +
+    '<div style="display:flex;gap:8px;"><input id="' + id + '" value="' + esc(val||'') + '" placeholder="' + placeholder + '" type="' + (type||'text') + '" style="flex:1;font-family:monospace;font-size:12px;">' +
+    '<button class="btn btn-secondary btn-xs" id="' + btnId + '">Gem</button></div>' +
+    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">' + note + '</p></div>';
+}
+
 function html_indstillinger_tab() {
   return '<div style="max-width:640px;margin:0 auto;">' +
     '<h1 style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;letter-spacing:.04em;margin-bottom:20px;">INDSTILLINGER</h1>' +
 
-    '<div class="card" style="margin-bottom:14px;background:rgba(34,197,94,.05);border-color:rgba(34,197,94,.2);">' +
-    '<div class="card-header"><span class="card-title" style="color:var(--green);">&#x2705; Cloudflare KV</span></div>' +
-    '<div class="card-body">' +
-    '<p style="font-size:13px;color:var(--text2);">Data gemmes i Cloudflare KV via din Holdsport Worker. Ingen Google Sheets krævet.</p>' +
-    '</div></div>' +
-
+    // KV Worker
     '<div class="card" style="margin-bottom:14px;">' +
-    '<div class="card-header"><span class="card-title">Holdsport</span></div>' +
+    '<div class="card-header"><span class="card-title">&#x1F4BE; Data (Cloudflare KV)</span></div>' +
     '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div class="form-group" style="margin:0;"><label>Worker URL</label>' +
-    '<div style="display:flex;gap:8px;"><input id="cfg-hs-url" value="'+esc(S.hsWorkerUrl||'')+'" placeholder="https://holdsport-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
-    '<button class="btn btn-secondary btn-xs" id="cfg-hs-save">Gem</button></div>' +
-    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Holdsport API.</p>' +
-    '</div>' +
-    '<div class="form-group" style="margin:0;"><label>APP_TOKEN</label>' +
-    '<div style="display:flex;gap:8px;"><input id="cfg-hs-token" value="'+esc(S.hsAppToken||'')+'" placeholder="Hemmelig token" type="password" style="flex:1;font-family:monospace;font-size:12px;">' +
-    '<button class="btn btn-secondary btn-xs" id="cfg-hs-token-save">Gem</button></div>' +
-    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">APP_TOKEN fra din Holdsport Cloudflare Worker (til adgangsbeskyttelse).</p>' +
-    '</div>' +
+    cfg_field('cfg-kv-url',    'traening-worker URL',  S.kvWorkerUrl,  'https://traening-worker.DITNAVN.workers.dev', 'Worker der gemmer træningsdata, årshjul og katalog.', 'cfg-kv-save') +
+    cfg_field('cfg-kv-token',  'APP_TOKEN',            S.kvAppToken,   'Hemmelig token', 'APP_TOKEN fra traening-worker.', 'cfg-kv-token-save', 'password') +
     '</div></div>' +
 
+    // Holdsport Worker
     '<div class="card" style="margin-bottom:14px;">' +
-    '<div class="card-header"><span class="card-title">AI</span></div>' +
+    '<div class="card-header"><span class="card-title">&#x1F3C3; Holdsport</span></div>' +
     '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div class="form-group" style="margin:0;"><label>Worker URL</label>' +
-    '<div style="display:flex;gap:8px;"><input id="cfg-ai-url" value="'+esc(S.aiWorkerUrl||'')+'" placeholder="https://ajax-ai-proxy.DITNAVN.workers.dev" style="flex:1;font-family:monospace;font-size:12px;">' +
-    '<button class="btn btn-secondary btn-xs" id="cfg-ai-save">Gem</button></div>' +
-    '<p style="font-size:11px;color:var(--text3);margin-top:4px;">Cloudflare Worker der proxyer Anthropic API til AI-beskrivelser.</p>' +
-    '</div>' +
+    cfg_field('cfg-hs-url',    'holdsport-worker URL', S.hsWorkerUrl,  'https://holdsport-worker.DITNAVN.workers.dev', 'Delt Worker der proxyer Holdsport API.', 'cfg-hs-save') +
+    cfg_field('cfg-hs-token',  'APP_TOKEN',            S.hsAppToken,   'Hemmelig token', 'APP_TOKEN fra holdsport-worker.', 'cfg-hs-token-save', 'password') +
     '</div></div>' +
 
+    // AI Worker
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header"><span class="card-title">&#x2728; AI</span></div>' +
+    '<div class="card-body" style="display:flex;flex-direction:column;gap:12px;">' +
+    cfg_field('cfg-ai-url',    'ajax-ai-proxy URL',    S.aiWorkerUrl,  'https://ajax-ai-proxy.DITNAVN.workers.dev', 'Worker der proxyer Anthropic API til AI-beskrivelser.', 'cfg-ai-save') +
+    '</div></div>' +
+
+    // Users
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
-    '<span class="card-title">Brugere</span>' +
+    '<span class="card-title">&#x1F465; Brugere</span>' +
     (canAdmin() ? '<button class="btn btn-primary btn-xs" id="manageUsersBtn">Administrér</button>' : '<span style="font-size:12px;color:var(--text3);">Kræver Årgangsansvarlig</span>') +
     '</div>' +
     '<div class="card-body">' +
@@ -1363,7 +1363,9 @@ function bind() {
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
-  ge('cfg-hs-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-token')?.value?.trim();S.hsAppToken=v||'';lsSave('hsAppToken',S.hsAppToken);toast('APP_TOKEN gemt ✓');});
+  ge('cfg-kv-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-url')?.value?.trim().replace(/\/$/,'');S.kvWorkerUrl=v||'';lsSave('kvWorkerUrl',S.kvWorkerUrl);toast('KV Worker URL gemt ✓');});
+  ge('cfg-kv-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-token')?.value?.trim();S.kvAppToken=v||'';lsSave('kvAppToken',S.kvAppToken);toast('KV APP_TOKEN gemt ✓');});
+  ge('cfg-hs-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-token')?.value?.trim();S.hsAppToken=v||'';lsSave('hsAppToken',S.hsAppToken);toast('Holdsport APP_TOKEN gemt ✓');});
   ge('cfg-hs-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-url')?.value?.trim().replace(/\/$/,'');S.hsWorkerUrl=v||'';lsSave('hsWorkerUrl',S.hsWorkerUrl);toast('Holdsport Worker URL gemt ✓');});
   ge('cfg-ai-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-ai-url')?.value?.trim().replace(/\/$/,'');S.aiWorkerUrl=v||'';lsSave('aiWorkerUrl',S.aiWorkerUrl);toast('AI Worker URL gemt ✓');});
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
