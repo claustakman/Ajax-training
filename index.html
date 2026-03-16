@@ -548,14 +548,16 @@ function html_editor() {
   const themes=S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
   return `<div style="max-width:980px;margin:0 auto;">
     <div style="margin-bottom:18px;">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <button class="btn btn-ghost btn-sm" id="cancelBtn">← Tilbage</button>
-        <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;flex:1;min-width:0;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
+        <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
-        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Gem skabelon</button>
+        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Skabelon</button>
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn">Arkivér</button>`:''}
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger btn-sm" id="delTBtn">Slet</button>`:''}
-        <button class="btn btn-primary btn-sm" id="saveTBtn">Gem træning</button>
+        <button class="btn btn-primary btn-sm" id="saveTBtn" style="margin-left:auto;">Gem træning</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
