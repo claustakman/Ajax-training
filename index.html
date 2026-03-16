@@ -548,17 +548,14 @@ function html_editor() {
   const themes=S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
   return `<div style="max-width:980px;margin:0 auto;">
     <div style="margin-bottom:18px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" id="cancelBtn">← Tilbage</button>
-        <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+        <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;flex:1;min-width:0;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
         <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
-        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Skabelon</button>
-        <button class="btn btn-secondary btn-sm" id="loadTmplBtn">📋 Indlæs</button>
+        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Gem skabelon</button>
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn">Arkivér</button>`:''}
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger btn-sm" id="delTBtn">Slet</button>`:''}
-        <button class="btn btn-primary btn-sm" id="saveTBtn" style="margin-left:auto;">Gem træning</button>
+        <button class="btn btn-primary btn-sm" id="saveTBtn">Gem træning</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -626,7 +623,7 @@ function html_editor() {
         </div>
       </div>
     </div>
-    <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><button class="btn btn-secondary btn-sm" id="addSecBtn">+ Tilføj sektion</button></div>
+    <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" id="loadTmplBtn">📋 Indlæs skabelon</button><button class="btn btn-secondary btn-sm" id="addSecBtn">+ Tilføj sektion</button></div></div>
       <div class="card-body" id="secs-wrap">
         ${(t.sections||[]).map((s,si)=>html_sec(s,si)).join('')}
         ${!(t.sections||[]).length?`<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik "+ Tilføj sektion"</p></div>`:''}
