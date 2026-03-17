@@ -552,11 +552,11 @@ function html_editor() {
         <button class="btn btn-ghost btn-sm" id="cancelBtn">← Tilbage</button>
         <h1 style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;">${S.trainings.find(x=>x.id===t.id)?'REDIGER':'NY TRÆNING'}</h1>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger">☐ Nulstil</button>
-        <button class="btn btn-secondary btn-sm" id="saveTmplBtn">💾 Skabelon</button>
-        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn">Arkivér</button>`:''}
-        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger btn-sm" id="delTBtn">Slet</button>`:''}
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger" style="padding:5px 9px;">↺</button>
+        <button class="btn btn-secondary btn-sm" id="saveTmplBtn" title="Gem som skabelon" style="padding:5px 9px;">💾</button>
+        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn" title="Arkivér">📦</button>`:''}
+        ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger btn-sm" id="delTBtn" title="Slet træning">🗑</button>`:''}
         <button class="btn btn-primary btn-sm" id="saveTBtn" style="margin-left:auto;">Gem træning</button>
       </div>
     </div>
