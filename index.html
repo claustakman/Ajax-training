@@ -879,18 +879,17 @@ function html_m_editex(ex) {
     <div class="form-group"><label>Tags (kommasepareret)</label><input id="ex-t" value="${esc(ex?(ex.tags||[]).join(', '):'')}" placeholder="aflevering, teknik…"></div>
     <div class="form-group"><label>Varianter / noter</label><textarea id="ex-v" rows="2">${esc(ex?ex.variants||'':'')}</textarea></div>
     <div class="form-group"><label>Link</label><input type="url" id="ex-l" value="${esc(ex?ex.link||'':'')}"></div>
-  </div>
-  <div class="form-group">
-    <label style="display:flex;align-items:center;justify-content:space-between;">
-      <span>Billede / illustration</span>
-      ${ex&&ex.image?`<button type="button" id="ex-img-del" class="btn btn-danger btn-xs">Slet billede</button>`:''}
-    </label>
-    <div id="ex-img-preview" style="margin-bottom:8px;">${ex&&ex.image?`<img src="${ex.image}" style="max-width:100%;max-height:200px;border-radius:6px;display:block;">`:''}</div>
-    <div id="ex-img-drop" style="border:2px dashed var(--border2);border-radius:6px;padding:20px;text-align:center;cursor:pointer;font-size:13px;color:var(--text2);">
-      📷 Tryk for at vælge billede, eller indsæt med Ctrl+V / Cmd+V
+    <div class="form-group">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Billede / illustration</span>
+        ${ex&&ex.image?`<button type="button" id="ex-img-del" class="btn btn-danger btn-xs">Slet billede</button>`:''}
+      </label>
+      <div id="ex-img-preview" style="margin-bottom:8px;">${ex&&ex.image?`<img src="${ex.image}" style="max-width:100%;max-height:200px;border-radius:6px;display:block;">`:''}</div>
+      <div id="ex-img-drop" style="border:2px dashed var(--border2);border-radius:6px;padding:20px;text-align:center;cursor:pointer;font-size:13px;color:var(--text2);">
+        📷 Tryk for at vælge billede, eller indsæt med Ctrl+V / Cmd+V
+      </div>
+      <input type="file" id="ex-img-file" accept="image/*" style="display:none;">
     </div>
-    <input type="file" id="ex-img-file" accept="image/*" style="display:none;">
-  </div>
   </div>
   <div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" data-saveex="${ex?ex.id:'new'}">Gem</button></div>`,'modal-sm');
 }
