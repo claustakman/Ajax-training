@@ -73,7 +73,7 @@
   .sc-keeper{--sc:#ec4899}.sc-forsvar{--sc:#f97316}
 
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
-  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.7);display:flex;flex-direction:column}
   .modal-lg{max-width:900px}.modal-sm{max-width:440px}
   @media(max-width:640px){.modal-overlay{padding:0!important;align-items:flex-end!important}.modal,.modal-sm,.modal-lg{max-width:100%!important;width:100%!important;border-radius:16px 16px 0 0!important;max-height:92vh!important;overflow-y:auto!important;margin:0!important}}
   .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
@@ -823,7 +823,7 @@ function html_modal() {
   if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
   return '';
 }
-function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}" style="display:flex;flex-direction:column;">${inner}</div></div>`;}
+function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}">${inner}</div></div>`;}
 function mhead(title){return `<div class="modal-header"><span class="modal-title">${title}</span><button class="btn btn-ghost btn-sm" id="mclose">✕</button></div>`;}
 
 function renderPickList(f, si) {
@@ -1091,7 +1091,7 @@ function html_m_manage_users() {
   h += '<select id="uf-role"><option value="trainer">Træner</option><option value="admin">Årgangsansvarlig</option></select></div>';
   h += '<input type="hidden" id="uf-id" value="">';
   h += '</div>';
-  return mwrap(mhead('Brugere'), h + '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
+  return mwrap(mhead('Brugere') + h + '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
        '<button class="btn btn-primary" id="uf-save">Gem bruger</button></div>', 'modal-sm');
 }
 
