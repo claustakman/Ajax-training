@@ -831,7 +831,7 @@ function renderPickList(f, si) {
   return f.slice(0,80).map(ex=>{
     const hasDesc = ex.description && ex.description.trim();
     return `<div class="list-item" style="margin-bottom:5px;padding:0;" data-pickex="${ex.id}" data-si="${si}">
-      <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">
         <div style="flex:1;min-width:0;">
           <div class="list-title">${esc(ex.name)}</div>
           <div class="list-meta">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
@@ -880,13 +880,25 @@ function html_m_editex(ex) {
     <div class="form-group"><label>Varianter / noter</label><textarea id="ex-v" rows="2">${esc(ex?ex.variants||'':'')}</textarea></div>
     <div class="form-group"><label>Link</label><input type="url" id="ex-l" value="${esc(ex?ex.link||'':'')}"></div>
   </div>
+  <div class="form-group">
+    <label style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Billede / illustration</span>
+      ${ex&&ex.image?`<button type="button" id="ex-img-del" class="btn btn-danger btn-xs">Slet billede</button>`:''}
+    </label>
+    <div id="ex-img-preview" style="margin-bottom:8px;">${ex&&ex.image?`<img src="${ex.image}" style="max-width:100%;max-height:200px;border-radius:6px;display:block;">`:''}</div>
+    <div id="ex-img-drop" style="border:2px dashed var(--border2);border-radius:6px;padding:20px;text-align:center;cursor:pointer;font-size:13px;color:var(--text2);">
+      📷 Tryk for at vælge billede, eller indsæt med Ctrl+V / Cmd+V
+    </div>
+    <input type="file" id="ex-img-file" accept="image/*" style="display:none;">
+  </div>
+  </div>
   <div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" data-saveex="${ex?ex.id:'new'}">Gem</button></div>`,'modal-sm');
 }
 
 function html_m_exdetail(ex) {
   if(!ex) return '';
   return mwrap(mhead(esc(ex.name))+`<div class="modal-body">
-    ${ex.description?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Beskrivelse</div><div style="font-size:14px;line-height:1.6;color:var(--text);">${esc(ex.description)}</div></div>`:''}
+    ${ex.image?`<img src="${ex.image}" style="max-width:100%;max-height:220px;border-radius:6px;display:block;margin-bottom:14px;">`:''}    ${ex.description?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Beskrivelse</div><div style="font-size:14px;line-height:1.6;color:var(--text);">${esc(ex.description)}</div></div>`:''}
     ${ex.variants?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Varianter & bemærkninger</div><div style="font-size:13px;line-height:1.6;color:var(--text);background:var(--bg3);padding:10px 12px;border-radius:5px;border-left:3px solid var(--accent);">${esc(ex.variants)}</div></div>`:''}
     ${(ex.tags||[]).length?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Tags</div><div class="tags-wrap">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div>`:''}
     ${ex.stars?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Vurdering</div><span class="stars-sm" style="font-size:16px;">${'★'.repeat(ex.stars)}${'☆'.repeat(5-ex.stars)}</span></div>`:''}
@@ -1773,6 +1785,90 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   on('[data-delexcat]',el=>requireUnlock(()=>{const id=el.dataset.delexcat;S.halCatalog=S.halCatalog.filter(e=>e.id!==id);S.fysCatalog=S.fysCatalog.filter(e=>e.id!==id);scheduleSave(S.catTab==='hal'?'hal':'fys');render();}));
   on('[data-exs]',    el=>{document.querySelectorAll('[data-exs]').forEach((s,i)=>s.classList.toggle('filled',i<+el.dataset.exs));});
   on('[data-saveex]', el=>requireUnlock(()=>saveExercise(el.dataset.saveex)));
+
+  // ── IMAGE UPLOAD / PASTE ──
+  window._exImage = undefined;
+  function setupImageHandlers() {
+    const drop = ge('ex-img-drop');
+    const fileInput = ge('ex-img-file');
+    const preview = ge('ex-img-preview');
+    if (!drop) return;
+    window._exImage = undefined; // reset
+
+    function applyImage(dataUrl) {
+      window._exImage = dataUrl;
+      if (preview) preview.innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;max-height:200px;border-radius:6px;display:block;">';
+      drop.style.display = 'none';
+      const delBtn = ge('ex-img-del') || ge('ex-img-del-dyn');
+      if (!delBtn) {
+        const btn = document.createElement('button');
+        btn.type='button'; btn.id='ex-img-del-dyn'; btn.className='btn btn-danger btn-xs'; btn.textContent='Slet billede';
+        btn.onclick = () => { window._exImage = null; if(preview) preview.innerHTML=''; drop.style.display=''; btn.remove(); };
+        drop.closest('.form-group')?.querySelector('label')?.appendChild(btn);
+      }
+    }
+
+    function compressAndApply(file) {
+      if (!file || !file.type.startsWith('image/')) { toast('Kun billedfiler', 'err'); return; }
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 800;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          applyImage(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    drop.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', () => { if(fileInput.files[0]) compressAndApply(fileInput.files[0]); });
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor='var(--accent)'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor=''; });
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.style.borderColor=''; compressAndApply(e.dataTransfer.files[0]); });
+    ge('ex-img-del')?.addEventListener('click', () => { window._exImage=null; if(preview) preview.innerHTML=''; drop.style.display=''; });
+  }
+  setupImageHandlers();
+
+  if (!document._imgPasteBound) { document._imgPasteBound = true;
+    document.addEventListener('paste', e => {
+      if (!ge('ex-img-drop')) return;
+      for (const item of (e.clipboardData?.items||[])) {
+        if (item.type.startsWith('image/')) {
+          const blob = item.getAsFile();
+          if (blob) compressAndApply_global(blob);
+          break;
+        }
+      }
+    });
+  }
+  function compressAndApply_global(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800; let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) { if (w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
+        const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        window._exImage = dataUrl;
+        const preview = ge('ex-img-preview');
+        const drop = ge('ex-img-drop');
+        if (preview) preview.innerHTML = '<img src="'+dataUrl+'" style="max-width:100%;max-height:200px;border-radius:6px;display:block;">';
+        if (drop) drop.style.display = 'none';
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
   on('[data-savecex]',el=>{
     const si=+el.dataset.savecex;
     const n=document.getElementById('cex-n')?.value?.trim();
@@ -1837,7 +1933,8 @@ function saveExercise(exId) {
   const catalog=v('ex-cat')||'hal';
   const ex={id:exId!=='new'?exId:uid(),name:n,stars,catalog,
     description:v('ex-d')||'',tags:(v('ex-t')||'').split(',').map(x=>x.trim()).filter(Boolean),
-    variants:v('ex-v')||'',link:v('ex-l')||''};
+    variants:v('ex-v')||'',link:v('ex-l')||'',
+    image: window._exImage !== undefined ? window._exImage : (()=>{const arr=catalog==='hal'?S.halCatalog:S.fysCatalog;return (arr.find(e=>e.id===exId)||{}).image||null;})()};
   const arr=catalog==='hal'?S.halCatalog:S.fysCatalog;
   const idx=arr.findIndex(e=>e.id===ex.id);
   if(idx>=0)arr[idx]=ex;else arr.push(ex);
