@@ -75,6 +75,7 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
   .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
   .modal-lg{max-width:900px}.modal-sm{max-width:440px}
+  @media(max-width:640px){.modal-overlay{padding:0!important;align-items:flex-end!important}.modal,.modal-sm,.modal-lg{max-width:100%!important;width:100%!important;border-radius:16px 16px 0 0!important;max-height:92vh!important;overflow-y:auto!important;margin:0!important}}
   .modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
   .modal-title{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.04em}
   .modal-body{padding:20px}
@@ -204,9 +205,7 @@
     /* Archive table: simplify */
     .arch-tbl .hide-mobile{display:none}
 
-    /* Modal: full-width, easier to read */
-    .modal-overlay{padding:0 !important;align-items:flex-end !important}
-    .modal,.modal-sm,.modal-lg{width:100vw !important;max-width:100vw !important;border-radius:16px 16px 0 0 !important;max-height:92vh;overflow-y:auto;margin:0 !important}
+    /* Modal mobile: handled above */
     .modal-body{padding:14px}
     .modal-title{font-size:15px}
 
