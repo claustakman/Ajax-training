@@ -823,7 +823,7 @@ function html_modal() {
   if(m.type==='fromTmpl') return mwrap(mhead('Ny træning')+`<div class="modal-body"><button class="list-item" style="border:2px dashed var(--border2);margin-bottom:8px;width:100%;" data-usetmpl="blank"><div class="list-title">📋 Start fra bunden</div></button>${S.templates.length===0?`<p style="color:var(--text3);text-align:center;padding:14px;font-size:13px;">Ingen skabeloner endnu</p>`:S.templates.map(t=>`<div class="flex-between list-item" style="margin-bottom:6px;" data-usetmpl="${t.id}"><div><div class="list-title">${esc(t.name)}</div><div class="list-meta">${(t.sections||[]).length} sektioner</div></div><button class="btn btn-danger btn-xs" data-deltmpl="${t.id}" onclick="event.stopPropagation()">✕</button></div>`).join('')}</div>`,'modal-sm');
   return '';
 }
-function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}">${inner}</div></div>`;}
+function mwrap(inner,size=''){return `<div class="modal-overlay" id="moverlay"><div class="modal ${size}" style="display:flex;flex-direction:column;">${inner}</div></div>`;}
 function mhead(title){return `<div class="modal-header"><span class="modal-title">${title}</span><button class="btn btn-ghost btn-sm" id="mclose">✕</button></div>`;}
 
 function renderPickList(f, si) {
@@ -1091,9 +1091,8 @@ function html_m_manage_users() {
   h += '<select id="uf-role"><option value="trainer">Træner</option><option value="admin">Årgangsansvarlig</option></select></div>';
   h += '<input type="hidden" id="uf-id" value="">';
   h += '</div>';
-  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
-       '<button class="btn btn-primary" id="uf-save">Gem bruger</button></div>';
-  return mwrap(mhead('Brugere'), h, 'modal-sm');
+  return mwrap(mhead('Brugere'), h + '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
+       '<button class="btn btn-primary" id="uf-save">Gem bruger</button></div>', 'modal-sm');
 }
 
 // ─── HOLDSPORT INTEGRATION ────────────────────────────────────────────────────
