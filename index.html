@@ -199,8 +199,8 @@
     label{font-size:12px}
 
     /* Catalog table: hide description and stars cols on mobile */
-    .cat-row{grid-template-columns:1fr 80px 40px 32px !important}
-    .cat-col-desc,.cat-col-stars{display:none}
+    .cat-row{grid-template-columns:1fr 36px 36px !important;gap:4px}
+    .cat-col-desc,.cat-col-stars,.cat-col-tags,.cat-col-link{display:none}
 
     /* Archive table: simplify */
     .arch-tbl .hide-mobile{display:none}
@@ -321,7 +321,7 @@ const S = {
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  [],
-  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', false), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
+  draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', true), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), kvWorkerUrl: lsLoad('kvWorkerUrl','https://traening-worker.claus-takman.workers.dev'), kvAppToken: lsLoad('kvAppToken',''), hsWorkerUrl: lsLoad('hsWorkerUrl','https://holdsport-worker.claus-takman.workers.dev'), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
 };
@@ -646,8 +646,10 @@ function renderSecs() {
   const wrap = document.getElementById('secs-wrap');
   if (!wrap || !S.draft) return;
   const secs = S.draft.sections || [];
+  const scrollY = window.scrollY;
   wrap.innerHTML = secs.map((s,si) => html_sec(s,si)).join('')
     + (!secs.length ? '<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik &quot;+ Tilføj sektion&quot;</p></div>' : '');
+  if (scrollY > 0) requestAnimationFrame(() => window.scrollTo({top: scrollY, behavior: 'instant'}));
 }
 
 function html_sec(sec,si) {
@@ -712,8 +714,8 @@ function renderCatRows(filtered, cat) {
       <div style="font-weight:600;font-size:13px;">${esc(ex.name)}</div>
       <div class="cat-col-desc" style="font-size:12px;color:var(--text2);">${ex.description?esc(ex.description.substring(0,80))+(ex.description.length>80?'…':''):(ex.variants?esc(ex.variants.substring(0,80))+(ex.variants.length>80?'…':''):'')}</div>
       <div class="cat-col-stars stars-sm">${ex.stars?'★'.repeat(ex.stars)+'☆'.repeat(5-ex.stars):'–'}</div>
-      <div class="tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
-      <div>${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
+      <div class="cat-col-tags tags-wrap">${(ex.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(ex.tags||[]).length>3?`<span class="tag">+${ex.tags.length-3}</span>`:''}</div>
+      <div class="cat-col-link">${ex.link?`<a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:12px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);" onclick="event.stopPropagation()">Link ↗</a>`:''}</div>
       <div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs" data-editex="${ex.id}" onclick="event.stopPropagation()" title="Redigér">✎</button><button class="btn btn-danger btn-xs" data-delexcat="${ex.id}" onclick="event.stopPropagation()">✕</button></div>
     </div>`).join('')
   + (filtered.length>120?`<div style="padding:10px;text-align:center;color:var(--text2);font-size:12px;">Viser 120 af ${filtered.length} – søg for at filtrere</div>`:'');
@@ -1331,6 +1333,28 @@ function html_indstillinger_tab() {
     ((S.users||[]).length===0?'<p style="font-size:12px;color:var(--text3);">Ingen brugere</p>':'') +
     '</div></div>' +
 
+    // Skabeloner
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
+    '<span class="card-title">📋 Skabeloner</span>' +
+    '</div>' +
+    '<div class="card-body">' +
+    ((S.templates||[]).length === 0
+      ? '<p style="font-size:12px;color:var(--text3);">Ingen skabeloner endnu. Gem en træning som skabelon fra træningseditoren.</p>'
+      : (S.templates||[]).map(t =>
+          '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">' +
+          '<div style="flex:1;">' +
+          '<div style="font-weight:600;font-size:13px;">' + esc(t.name) + '</div>' +
+          '<div style="font-size:11px;color:var(--text2);">' + (t.sections||[]).length + ' sektioner · ' +
+          (t.sections||[]).reduce((n,s)=>n+(s.exercises||[]).length,0) + ' øvelser</div>' +
+          '</div>' +
+          (canEdit() ? '<button class="btn btn-ghost btn-xs" data-renametmpl="' + esc(t.id) + '">✎ Omdøb</button>' : '') +
+          (canEdit() ? '<button class="btn btn-danger btn-xs" data-deltmplset="' + esc(t.id) + '">✕</button>' : '') +
+          '</div>'
+        ).join('')
+    ) +
+    '</div></div>' +
+
     '</div>';
 }
 
@@ -1904,6 +1928,17 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});scheduleSave('templates');toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
   on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
   on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);scheduleSave('templates');render();});
+  on('[data-deltmplset]',el=>{if(!confirm('Slet skabelon?'))return;S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmplset);scheduleSave('templates');toast('Skabelon slettet');render();});
+  on('[data-renametmpl]',el=>{
+    const tmpl=S.templates.find(t=>t.id===el.dataset.renametmpl);
+    if(!tmpl)return;
+    const name=prompt('Nyt navn:',tmpl.name);
+    if(!name||!name.trim())return;
+    tmpl.name=name.trim();
+    scheduleSave('templates');
+    toast('Skabelon omdøbt ✓');
+    render();
+  });
   ge('mclose')?.addEventListener('click',()=>{S.modal=null;render();});
   document.querySelectorAll('.mclose').forEach(el=>el.addEventListener('click',()=>{S.modal=null;render();}));
   ge('moverlay')?.addEventListener('click',e=>{if(e.target.id==='moverlay'){S.modal=null;render();}});
