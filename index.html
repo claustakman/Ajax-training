@@ -555,6 +555,7 @@ function html_editor() {
       <div style="display:flex;align-items:center;gap:6px;">
         <button class="btn btn-ghost btn-sm" id="resetChecksBtn" title="Nulstil alle afkrydsninger" style="padding:5px 9px;">↺</button>
         <button class="btn btn-secondary btn-sm" id="saveTmplBtn" title="Gem som skabelon" style="padding:5px 9px;">💾</button>
+        <button class="btn btn-secondary btn-sm" id="aiSuggestBtn" title="AI træningsforslag" style="padding:5px 9px;border-color:var(--purple);color:var(--purple);">✨</button>
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-ghost btn-sm" id="archTBtn" title="Arkivér">📦</button>`:''}
         ${S.trainings.find(x=>x.id===t.id)?`<button class="btn btn-danger btn-sm" id="delTBtn" title="Slet træning">🗑</button>`:''}
         <button class="btn btn-primary btn-sm" id="saveTBtn" style="margin-left:auto;">Gem træning</button>
@@ -1686,7 +1687,6 @@ function bind() {
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
-  ge('aiSuggestBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'aiSuggest'};render();}));
   ge('aiSuggestBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'aiSuggest'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
   ge('cfg-kv-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-url')?.value?.trim().replace(/\/$/,'');S.kvWorkerUrl=v||'';lsSave('kvWorkerUrl',S.kvWorkerUrl);toast('KV Worker URL gemt – henter data…');loadFromKV();});
