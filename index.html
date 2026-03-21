@@ -2410,8 +2410,51 @@ function handleImport(file) {
     const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];applyImport(parseRows(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}),ct),ct,st);}catch(err){if(st)st.innerHTML=`<span style="color:var(--red);">Fejl: ${err.message}</span>`;}};r.readAsArrayBuffer(file);
   }
 }
-function parseCSV(text,cat){return text.split('\n').filter(l=>l.trim()).slice(1).map(line=>{const c=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));return{id:uid(),catalog:cat,name:c[0]||'',description:c[1]||'',stars:Math.min(5,Math.max(0,parseInt(c[2])||0)),tags:(c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),variants:c[4]||'',link:c[5]||''};}).filter(e=>e.name);}
-function parseRows(rows,cat){const skip=isNaN(rows[0]?.[2])?1:0;return rows.slice(skip).map(c=>({id:uid(),catalog:cat,name:String(c[0]||'').trim(),description:String(c[1]||'').trim(),stars:Math.min(5,Math.max(0,parseInt(c[2])||0)),tags:String(c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),variants:String(c[4]||'').trim(),link:String(c[5]||'').trim()})).filter(e=>e.name);}
+function parseCSV(text,cat){
+  const lines=text.split('\n').filter(l=>l.trim());
+  if(!lines.length)return[];
+  const header=lines[0].split(',').map(x=>x.trim().replace(/^"|"$/g,'').toLowerCase());
+  const idx=k=>header.indexOf(k);
+  return lines.slice(1).map(line=>{
+    const c=line.split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+    const name=idx('navn')>=0?c[idx('navn')]:c[0]||'';
+    if(!name)return null;
+    return{
+      id: idx('id')>=0&&c[idx('id')]?c[idx('id')]:uid(),
+      catalog: idx('katalog')>=0&&c[idx('katalog')]?c[idx('katalog')]:cat,
+      name,
+      description: idx('beskrivelse')>=0?c[idx('beskrivelse')]||'':c[1]||'',
+      stars: Math.min(5,Math.max(0,parseInt(idx('stjærner')>=0?c[idx('stjærner')]:c[2])||0)),
+      tags: (idx('tags')>=0?c[idx('tags')]:c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),
+      variants: idx('varianter')>=0?c[idx('varianter')]||'':c[4]||'',
+      link: idx('link')>=0?c[idx('link')]||'':c[5]||'',
+      aldersgrupper: (idx('aldersgruppe')>=0?c[idx('aldersgruppe')]||'':'').split(';').map(x=>x.trim()).filter(Boolean),
+      defaultMins: parseInt(idx('vejledende minutter')>=0?c[idx('vejledende minutter')]||'':'') ||null,
+    };
+  }).filter(Boolean);
+}
+function parseRows(rows,cat){
+  if(!rows||!rows.length)return[];
+  const hasHeader=isNaN(rows[0]?.[2]);
+  const header=hasHeader?rows[0].map(h=>String(h||'').toLowerCase().trim()):null;
+  const idx=k=>header?header.indexOf(k):-1;
+  return rows.slice(hasHeader?1:0).map(c=>{
+    const name=idx('navn')>=0?String(c[idx('navn')]||'').trim():String(c[0]||'').trim();
+    if(!name)return null;
+    return{
+      id: idx('id')>=0&&c[idx('id')]?String(c[idx('id')]).trim():uid(),
+      catalog: idx('katalog')>=0&&c[idx('katalog')]?String(c[idx('katalog')]).trim():cat,
+      name,
+      description: String(idx('beskrivelse')>=0?c[idx('beskrivelse')]||'':c[1]||'').trim(),
+      stars: Math.min(5,Math.max(0,parseInt(String(idx('stjærner')>=0?c[idx('stjærner')]:c[2]))||0)),
+      tags: String(idx('tags')>=0?c[idx('tags')]:c[3]||'').split(';').map(x=>x.trim()).filter(Boolean),
+      variants: String(idx('varianter')>=0?c[idx('varianter')]||'':c[4]||'').trim(),
+      link: String(idx('link')>=0?c[idx('link')]||'':c[5]||'').trim(),
+      aldersgrupper: String(idx('aldersgruppe')>=0?c[idx('aldersgruppe')]||'':'').split(';').map(x=>x.trim()).filter(Boolean),
+      defaultMins: parseInt(String(idx('vejledende minutter')>=0?c[idx('vejledende minutter')]||'':'')) ||null,
+    };
+  }).filter(Boolean);
+}
 function applyImport(exs,ct,st){
   if(!exs.length){if(st)st.innerHTML='<span style="color:var(--red);">Ingen øvelser fundet</span>';return;}
   const arr=ct==='hal'?S.halCatalog:S.fysCatalog;
