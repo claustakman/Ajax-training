@@ -811,6 +811,12 @@ function html_modal() {
   if(m.type==='custEx')  return html_m_custem(m.si);
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
   if(m.type==='loadTmpl')    return html_m_load_tmpl();
+  if(m.type==='aiSuggest')   return html_m_ai_suggest();
+  if(m.type==='aiLoading')   return html_m_ai_loading();
+  if(m.type==='aiResult')    return html_m_ai_result(m.sections);
+  if(m.type==='aiSuggest')   return html_m_ai_suggest();
+  if(m.type==='aiLoading')   return html_m_ai_loading();
+  if(m.type==='aiResult')    return html_m_ai_result(m.sections);
   if(m.type==='login')       return html_m_login(m.afterLogin);
   if(m.type==='manageUsers') return html_m_manage_users();
   if(m.type==='login')       return html_m_login(m.afterLogin);
@@ -1095,6 +1101,157 @@ function html_m_manage_users() {
   h += '</div>';
   return mwrap(mhead('Brugere') + h + '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button>' +
        '<button class="btn btn-primary" id="uf-save">Gem bruger</button></div>', 'modal-sm');
+}
+
+
+// ─── AI TRÆNINGSFORSLAG ───────────────────────────────────────────────────────
+
+function html_m_ai_suggest() {
+  const themes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  const currentThemes = (S.draft&&S.draft.themes)||[];
+
+  let h = '<div class="modal-body">';
+  h += '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">AI foreslår øvelser baseret på dit katalog, temaer og tidligere træninger.</p>';
+
+  // Sektioner
+  h += '<div class="form-group"><label>Sektioner (vælg de der skal med)</label>';
+  h += '<div class="pill-group" id="ai-sec-picks">';
+  SECTIONS.forEach(s => {
+    const active = (S.draft&&S.draft.sections||[]).some(ds=>ds.type===s.id);
+    h += `<button class="pill btn-xs${active?' active':''}" data-aisec="${s.id}" style="border-color:${s.color};${active?`background:${s.color}20;color:${s.color}`:''}">${s.label}</button>`;
+  });
+  h += '</div></div>';
+
+  // Temaer
+  h += '<div class="form-group"><label>Temaer</label>';
+  h += '<div class="pill-group" id="ai-theme-picks">';
+  themes.forEach(t => {
+    const active = currentThemes.includes(t);
+    h += `<button class="pill btn-xs${active?' active':''}" data-aitheme="${esc(t)}">${esc(t)}</button>`;
+  });
+  h += '</div>';
+  h += '<input id="ai-theme-custom" placeholder="Tilføj tema…" style="margin-top:8px;width:100%;">';
+  h += '</div>';
+
+  // Variation toggle
+  h += '<div class="form-group">';
+  h += '<label>Øvelsesvariation</label>';
+  h += '<div style="display:flex;gap:8px;margin-top:6px;">';
+  h += '<button class="pill active" id="ai-vary-yes" style="flex:1;justify-content:center;">🔄 Varier – undgå nylige øvelser</button>';
+  h += '<button class="pill" id="ai-vary-no" style="flex:1;justify-content:center;">🔁 Gentag gerne</button>';
+  h += '</div></div>';
+
+  h += '</div>';
+  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button>';
+  h += '<button class="btn btn-primary" id="ai-suggest-go" style="background:var(--purple);border-color:var(--purple);">✨ Generer forslag</button></div>';
+  return mwrap(mhead('✨ Foreslå træning') + h, 'modal-sm');
+}
+
+function html_m_ai_loading() {
+  return mwrap(mhead('✨ Genererer forslag…') +
+    '<div class="modal-body" style="text-align:center;padding:40px 20px;">' +
+    '<div style="font-size:36px;margin-bottom:16px;animation:pulse 1s infinite;">✨</div>' +
+    '<div style="color:var(--text2);font-size:14px;">AI sammensætter din træning…</div>' +
+    '</div>', 'modal-sm');
+}
+
+function html_m_ai_result(sections) {
+  if (!sections || !sections.length) {
+    return mwrap(mhead('✨ Forslag') +
+      '<div class="modal-body"><p style="color:var(--text3);">Ingen forslag genereret. Prøv igen.</p></div>' +
+      '<div class="modal-footer"><button class="btn btn-ghost mclose">Luk</button></div>', 'modal-sm');
+  }
+  const all = S.halCatalog.concat(S.fysCatalog);
+  let h = '<div class="modal-body">';
+  h += '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Gennemse forslaget og acceptér eller afvis.</p>';
+  sections.forEach((sec, si) => {
+    const def = SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
+    h += `<div style="margin-bottom:14px;border-left:3px solid ${def.color};padding-left:10px;">`;
+    h += `<div style="font-weight:700;color:${def.color};font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${def.label}</div>`;
+    (sec.exercises||[]).forEach(ex => {
+      const exDef = all.find(e=>e.id===ex.exerciseId);
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">`;
+      h += `<div style="flex:1;font-size:13px;">${esc(exDef?exDef.name:'Ukendt øvelse')}</div>`;
+      h += `<span style="font-size:11px;color:var(--text2);">${ex.mins} min</span>`;
+      h += `</div>`;
+    });
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<div class="modal-footer">';
+  h += '<button class="btn btn-ghost mclose">Afvis</button>';
+  h += '<button class="btn btn-ghost" id="ai-retry">↺ Prøv igen</button>';
+  h += '<button class="btn btn-primary" id="ai-accept" style="background:var(--purple);border-color:var(--purple);">✓ Acceptér</button>';
+  h += '</div>';
+  return mwrap(mhead('✨ Forslag klar') + h, 'modal-sm');
+}
+
+async function runAISuggest(secs, themes, vary) {
+  const all = S.halCatalog.concat(S.fysCatalog);
+
+  // Recent exercise IDs to avoid (last 3 trainings)
+  let recentIds = new Set();
+  if (vary) {
+    const recent = [...S.trainings]
+      .filter(t=>!t.archived)
+      .sort((a,b)=>b.date.localeCompare(a.date))
+      .slice(0,3);
+    recent.forEach(t => (t.sections||[]).forEach(s => (s.exercises||[]).forEach(e => recentIds.add(e.exerciseId))));
+  }
+
+  // Build catalog summary for AI (name, tags, stars, id)
+  const catalogSummary = all.map(e => ({
+    id: e.id,
+    name: e.name,
+    tags: (e.tags||[]).join(', '),
+    stars: e.stars||0,
+    description: (e.description||'').substring(0,100),
+    recent: recentIds.has(e.id),
+  }));
+
+  const prompt = `Du er assistenten for en håndboldtræner for U11 piger. 
+Sammensæt en træning med følgende sektioner: ${secs.join(', ')}.
+Temaer for træningen: ${themes.length ? themes.join(', ') : 'ingen specifikke'}.
+Variation: ${vary ? 'Undgå øvelser markeret som recent:true hvis muligt' : 'Gentag gerne øvelser fra nylige træninger'}.
+
+Katalog (vælg kun fra disse IDs):
+${JSON.stringify(catalogSummary)}
+
+Returner KUN et JSON-array med sektioner i dette format (ingen tekst før eller efter):
+[
+  {"type":"opvarmning","mins":20,"exercises":[{"exerciseId":"xxx","mins":10},{"exerciseId":"yyy","mins":10}]},
+  ...
+]
+
+Regler:
+- Brug kun exercise IDs fra kataloget
+- Vælg øvelser der matcher sektionens type og træningens temaer
+- Foretrræk øvelser med høje stars
+- Fordel minutter fornuftigt inden for sektionen
+- Maks 4-6 øvelser per sektion
+- Sektionstype skal være en af: ${SECTIONS.map(s=>s.id).join(', ')}`;
+
+  const aiUrl = S.aiWorkerUrl || lsLoad('aiWorkerUrl','');
+  if (!aiUrl) throw new Error('AI Worker URL ikke sat – gå til Indstillinger');
+
+  const resp = await fetch(aiUrl, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      messages: [{role:'user', content: prompt}]
+    })
+  });
+
+  if (!resp.ok) throw new Error('AI fejl: ' + resp.status);
+  const data = await resp.json();
+  const text = data.content?.[0]?.text || '';
+
+  // Parse JSON from response
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('AI returnerede ikke gyldigt JSON');
+  return JSON.parse(match[0]);
 }
 
 // ─── HOLDSPORT INTEGRATION ────────────────────────────────────────────────────
@@ -1383,6 +1540,118 @@ document.addEventListener('click', e=>{
   }
 });
 
+// ─── AI SUGGEST BINDINGS ─────────────────────────────────────────────────────
+if (!document._aiSuggestBound) { document._aiSuggestBound = true;
+  document.addEventListener('click', async e => {
+    // Toggle section pill
+    const secPill = e.target.closest('[data-aisec]');
+    if (secPill) { secPill.classList.toggle('active'); return; }
+
+    // Toggle theme pill
+    const themePill = e.target.closest('[data-aitheme]');
+    if (themePill) { themePill.classList.toggle('active'); return; }
+
+    // Toggle variation
+    if (e.target.closest('#ai-vary-yes')) {
+      ge('ai-vary-yes')?.classList.add('active');
+      ge('ai-vary-no')?.classList.remove('active');
+      return;
+    }
+    if (e.target.closest('#ai-vary-no')) {
+      ge('ai-vary-no')?.classList.add('active');
+      ge('ai-vary-yes')?.classList.remove('active');
+      return;
+    }
+
+    // Generate
+    if (e.target.closest('#ai-suggest-go')) {
+      const secs = [...document.querySelectorAll('[data-aisec].active')].map(el=>el.dataset.aisec);
+      if (!secs.length) { toast('Vælg mindst én sektion', 'err'); return; }
+
+      const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
+      const custom = (ge('ai-theme-custom')?.value||'').trim();
+      if (custom) themes.push(custom);
+
+      const vary = ge('ai-vary-yes')?.classList.contains('active') || false;
+
+      S.modal = {type:'aiLoading'}; render();
+      try {
+        const sections = await runAISuggest(secs, themes, vary);
+        window._aiLastSecs = secs;
+        window._aiLastThemes = themes;
+        window._aiLastVary = vary;
+        S.modal = {type:'aiResult', sections}; render();
+      } catch(err) {
+        toast('AI fejl: ' + err.message, 'err');
+        S.modal = null; render();
+      }
+      return;
+    }
+
+    // Retry
+    if (e.target.closest('#ai-retry')) {
+      S.modal = {type:'aiLoading'}; render();
+      try {
+        const sections = await runAISuggest(window._aiLastSecs||[], window._aiLastThemes||[], window._aiLastVary||false);
+        S.modal = {type:'aiResult', sections}; render();
+      } catch(err) {
+        toast('AI fejl: ' + err.message, 'err');
+        S.modal = null; render();
+      }
+      return;
+    }
+
+    // Accept result
+    if (e.target.closest('#ai-accept')) {
+      const m = S.modal;
+      if (m && m.sections) {
+        S.draft.sections = m.sections.map(s => ({...s, collapsed:false}));
+        renderSecs();
+        toast('Træning opdateret ✓');
+      }
+      S.modal = null; render();
+      return;
+    }
+  });
+}
+
+// ─── AI SUGGEST BINDINGS ─────────────────────────────────────────────────────
+if (!document._aiSuggestBound) { document._aiSuggestBound = true;
+  document.addEventListener('click', async e => {
+    const secPill = e.target.closest('[data-aisec]');
+    if (secPill && ge('ai-sec-picks')) { secPill.classList.toggle('active'); return; }
+    const themePill = e.target.closest('[data-aitheme]');
+    if (themePill && ge('ai-theme-picks')) { themePill.classList.toggle('active'); return; }
+    if (e.target.closest('#ai-vary-yes')) { ge('ai-vary-yes')?.classList.add('active'); ge('ai-vary-no')?.classList.remove('active'); return; }
+    if (e.target.closest('#ai-vary-no')) { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
+    if (e.target.closest('#ai-suggest-go')) {
+      const secs = [...document.querySelectorAll('[data-aisec].active')].map(el=>el.dataset.aisec);
+      if (!secs.length) { toast('Vælg mindst én sektion', 'err'); return; }
+      const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
+      const custom = (ge('ai-theme-custom')?.value||'').trim();
+      if (custom) themes.push(custom);
+      const vary = !ge('ai-vary-no')?.classList.contains('active');
+      window._aiLastSecs=secs; window._aiLastThemes=themes; window._aiLastVary=vary;
+      S.modal = {type:'aiLoading'}; render();
+      try { const sections = await runAISuggest(secs, themes, vary); S.modal = {type:'aiResult', sections}; render(); }
+      catch(err) { toast('AI fejl: ' + err.message, 'err'); S.modal = {type:'aiSuggest'}; render(); }
+      return;
+    }
+    if (e.target.closest('#ai-retry')) {
+      S.modal = {type:'aiLoading'}; render();
+      try { const sections = await runAISuggest(window._aiLastSecs||[], window._aiLastThemes||[], window._aiLastVary||false); S.modal = {type:'aiResult', sections}; render(); }
+      catch(err) { toast('AI fejl: ' + err.message, 'err'); S.modal = null; render(); }
+      return;
+    }
+    if (e.target.closest('#ai-accept')) {
+      const m = S.modal;
+      if (m && m.sections) { S.draft.sections = m.sections.map(s=>({...s,collapsed:false})); renderSecs(); toast('Træning opdateret ✓'); }
+      S.modal = null; render();
+      return;
+    }
+  });
+}
+
 // ─── ROLE HELPERS ────────────────────────────────────────────────────────────
 function userRole() { return (S.currentUser && S.currentUser.role) || 'guest'; }
 function canEdit()  { return userRole() === 'trainer' || userRole() === 'admin'; }
@@ -1417,6 +1686,8 @@ function bind() {
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
+  ge('aiSuggestBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'aiSuggest'};render();}));
+  ge('aiSuggestBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'aiSuggest'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
   ge('cfg-kv-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-url')?.value?.trim().replace(/\/$/,'');S.kvWorkerUrl=v||'';lsSave('kvWorkerUrl',S.kvWorkerUrl);toast('KV Worker URL gemt – henter data…');loadFromKV();});
   ge('cfg-kv-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-token')?.value?.trim();S.kvAppToken=v||'';lsSave('kvAppToken',S.kvAppToken);toast('APP_TOKEN gemt – henter data…');loadFromKV();});
