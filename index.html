@@ -886,7 +886,10 @@ function html_m_editex(ex) {
     </div>
     <div class="form-group"><label>Tags (kommasepareret)</label><input id="ex-t" value="${esc(ex?(ex.tags||[]).join(', '):'')}" placeholder="aflevering, teknik…"></div>
     <div class="form-group"><label>Varianter / noter</label><textarea id="ex-v" rows="2">${esc(ex?ex.variants||'':'')}</textarea></div>
+    <div class="form-group"><label>Standardvarighed (min)</label><input type="number" id="ex-dm" value="${ex?ex.defaultMins||10:10}" min="1" max="60" step="1" style="width:80px;" placeholder="10"></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:12px;"><label style="white-space:nowrap;">Standardvarighed</label><input type="number" id="ex-dm" value="${ex?ex.defaultMins||10:10}" min="1" max="60" step="1" style="width:70px;"><span style="font-size:12px;color:var(--text2);">min</span></div>
     <div class="form-group"><label>Link</label><input type="url" id="ex-l" value="${esc(ex?ex.link||'':'')}"></div>
+    <div class="form-group"><label style="display:flex;align-items:center;justify-content:space-between;"><span>Vejledende varighed</span><span style="font-size:11px;color:var(--text2);font-weight:400;">bruges af AI til at beregne maks øvelser</span></label><div style="display:flex;align-items:center;gap:8px;"><input type="number" id="ex-mins" value="${ex&&ex.defaultMins?ex.defaultMins:''}" min="1" max="60" placeholder="min" style="width:70px;text-align:center;"><span style="font-size:13px;color:var(--text2);">minutter</span></div></div>
     <div class="form-group">
       <label style="display:flex;align-items:center;justify-content:space-between;">
         <span>Billede / illustration</span>
@@ -909,6 +912,7 @@ function html_m_exdetail(ex) {
     ${ex.variants?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Varianter & bemærkninger</div><div style="font-size:13px;line-height:1.6;color:var(--text);background:var(--bg3);padding:10px 12px;border-radius:5px;border-left:3px solid var(--accent);">${esc(ex.variants)}</div></div>`:''}
     ${(ex.tags||[]).length?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Tags</div><div class="tags-wrap">${(ex.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div>`:''}
     ${ex.stars?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Vurdering</div><span class="stars-sm" style="font-size:16px;">${'★'.repeat(ex.stars)}${'☆'.repeat(5-ex.stars)}</span></div>`:''}
+    ${ex.defaultMins?`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Vejledende varighed</div><div style="font-size:14px;color:var(--text);">${ex.defaultMins} min</div></div>`:''}
     ${ex.link?`<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Kilde</div><a href="${esc(ex.link)}" target="_blank" style="color:var(--blue);font-size:13px;text-decoration:none;border-bottom:1px solid rgba(59,130,246,0.4);">${esc(ex.link.replace(/^https?:\/\//, '').substring(0,50))}${ex.link.length>53?'…':''} ↗</a></div>`:''}
     ${!ex.description&&!ex.variants&&!ex.link?`<p style="color:var(--text3);font-size:13px;">Ingen yderligere oplysninger for denne øvelse.</p>`:''}
   </div>
@@ -1109,18 +1113,32 @@ function html_m_manage_users() {
 function html_m_ai_suggest() {
   const themes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
   const currentThemes = (S.draft&&S.draft.themes)||[];
+  const existingSecs = (S.draft&&S.draft.sections)||[];
 
   let h = '<div class="modal-body">';
-  h += '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">AI foreslår øvelser baseret på dit katalog, temaer og tidligere træninger.</p>';
+  h += '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Angiv sektioner og tid – AI vælger øvelser der passer.</p>';
 
-  // Sektioner
-  h += '<div class="form-group"><label>Sektioner (vælg de der skal med)</label>';
-  h += '<div class="pill-group" id="ai-sec-picks">';
-  SECTIONS.forEach(s => {
-    const active = (S.draft&&S.draft.sections||[]).some(ds=>ds.type===s.id);
-    h += `<button class="pill btn-xs${active?' active':''}" data-aisec="${s.id}" style="border-color:${s.color};${active?`background:${s.color}20;color:${s.color}`:''}">${s.label}</button>`;
+  // Sektioner med minutter
+  h += '<div class="form-group"><label>Sektioner & varighed</label>';
+  h += '<div id="ai-sec-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">';
+  // Pre-fill from existing sections
+  const preFill = existingSecs.length
+    ? existingSecs.map(s => ({type:s.type, mins:s.mins||15}))
+    : [{type:'opvarmning',mins:15},{type:'teknik',mins:20},{type:'spil',mins:25}];
+  preFill.forEach((s,i) => {
+    const def = SECTIONS.find(x=>x.id===s.type)||SECTIONS[0];
+    h += `<div class="ai-sec-row" style="display:flex;align-items:center;gap:8px;" data-row="${i}">`;
+    h += `<select class="ai-sec-type" style="flex:1;border-left:3px solid ${def.color};">`;
+    SECTIONS.forEach(sec => h += `<option value="${sec.id}"${sec.id===s.type?' selected':''}>${sec.label}</option>`);
+    h += `</select>`;
+    h += `<input type="number" class="ai-sec-mins" value="${s.mins}" min="5" max="60" step="5" style="width:64px;text-align:center;">`;
+    h += `<span style="font-size:11px;color:var(--text2);">min</span>`;
+    h += `<button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
+    h += `</div>`;
   });
-  h += '</div></div>';
+  h += '</div>';
+  h += '<button class="btn btn-ghost btn-xs" id="ai-sec-add">+ Tilføj sektion</button>';
+  h += '</div>';
 
   // Temaer
   h += '<div class="form-group"><label>Temaer</label>';
@@ -1134,11 +1152,10 @@ function html_m_ai_suggest() {
   h += '</div>';
 
   // Variation toggle
-  h += '<div class="form-group">';
-  h += '<label>Øvelsesvariation</label>';
+  h += '<div class="form-group"><label>Øvelsesvariation</label>';
   h += '<div style="display:flex;gap:8px;margin-top:6px;">';
-  h += '<button class="pill active" id="ai-vary-yes" style="flex:1;justify-content:center;">🔄 Varier – undgå nylige øvelser</button>';
-  h += '<button class="pill" id="ai-vary-no" style="flex:1;justify-content:center;">🔁 Gentag gerne</button>';
+  h += '<button class="pill active" id="ai-vary-yes" style="flex:1;justify-content:center;">🔄 Varier</button>';
+  h += '<button class="pill" id="ai-vary-no" style="flex:1;justify-content:center;">🔁 Gentag</button>';
   h += '</div></div>';
 
   h += '</div>';
@@ -1167,7 +1184,8 @@ function html_m_ai_result(sections) {
   sections.forEach((sec, si) => {
     const def = SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
     h += `<div style="margin-bottom:14px;border-left:3px solid ${def.color};padding-left:10px;">`;
-    h += `<div style="font-weight:700;color:${def.color};font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${def.label}</div>`;
+    const totalMinsStr = sec.mins ? ` · ${sec.mins} min` : '';
+    h += `<div style="font-weight:700;color:${def.color};font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${def.label}<span style="font-weight:400;color:var(--text2);">${totalMinsStr}</span></div>`;
     (sec.exercises||[]).forEach(ex => {
       const exDef = all.find(e=>e.id===ex.exerciseId);
       h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">`;
@@ -1186,7 +1204,8 @@ function html_m_ai_result(sections) {
   return mwrap(mhead('✨ Forslag klar') + h, 'modal-sm');
 }
 
-async function runAISuggest(secs, themes, vary) {
+async function runAISuggest(secsMins, themes, vary) {
+  // secsMins = [{type, mins}, ...]
   const all = S.halCatalog.concat(S.fysCatalog);
 
   // Recent exercise IDs to avoid (last 3 trainings)
@@ -1199,37 +1218,69 @@ async function runAISuggest(secs, themes, vary) {
     recent.forEach(t => (t.sections||[]).forEach(s => (s.exercises||[]).forEach(e => recentIds.add(e.exerciseId))));
   }
 
-  // Build catalog summary for AI (name, tags, stars, id)
-  const catalogSummary = all.map(e => ({
-    id: e.id,
-    name: e.name,
-    tags: (e.tags||[]).join(', '),
-    stars: e.stars||0,
-    description: (e.description||'').substring(0,100),
-    recent: recentIds.has(e.id),
-  }));
+  // Build catalog summary - only include relevant exercises per section type
+  const secTypes = [...new Set(secsMins.map(s=>s.type))];
+  const tagMap = {
+    fysisk:['plyometrik','eksplosion','styrke','hurtighed'],
+    opvarmning:['opvarmning','leg','stafet','småspil','tvekamp'],
+    afleveringer:['aflevering','hurtighed'],
+    kontra:['kontra','returløb'],
+    teknik:['skud','finter','duel','keeper','faldteknik'],
+    spil:['sammenspil','beslutning','taktik','kamp','forsvar'],
+    keeper:['keeper'],
+    forsvar:['forsvar','taktik'],
+  };
+  // Build catalog summary with defaultMins
+  const catalogSummary = all
+    .filter(e => {
+      const eTags = e.tags||[];
+      return secTypes.some(t => (tagMap[t]||[]).some(tag => eTags.includes(tag)) || eTags.includes(t));
+    })
+    .map(e => ({
+      id: e.id,
+      name: e.name,
+      tags: (e.tags||[]).join(', '),
+      stars: e.stars||0,
+      defaultMins: e.defaultMins||10,
+      recent: recentIds.has(e.id),
+    }));
 
-  const prompt = `Du er assistenten for en håndboldtræner for U11 piger. 
-Sammensæt en træning med følgende sektioner: ${secs.join(', ')}.
-Temaer for træningen: ${themes.length ? themes.join(', ') : 'ingen specifikke'}.
-Variation: ${vary ? 'Undgå øvelser markeret som recent:true hvis muligt' : 'Gentag gerne øvelser fra nylige træninger'}.
+  // Describe each section with estimated max exercises based on avg defaultMins of relevant exercises
+  const secsDesc = secsMins.map(s => {
+    const def = SECTIONS.find(x=>x.id===s.type);
+    const label = def ? def.label : s.type;
+    // Find relevant exercises for this section
+    const relExs = catalogSummary.filter(e => {
+      const eTags = e.tags.split(', ');
+      return (tagMap[s.type]||[]).some(tag=>eTags.includes(tag)) || eTags.includes(s.type);
+    });
+    // Average defaultMins of relevant exercises
+    const avgMins = relExs.length > 0
+      ? Math.round(relExs.reduce((sum,e)=>sum+e.defaultMins,0)/relExs.length)
+      : 10;
+    const maxEx = Math.max(1, Math.round(s.mins / avgMins));
+    return `${label}: ${s.mins} min total, ca. ${avgMins} min/øvelse → maks ${maxEx} øvelse${maxEx>1?'r':''}`;
+  }).join('\n');
 
-Katalog (vælg kun fra disse IDs):
+  const prompt = `Du er assistent for en håndboldtræner for U11 piger (9-11 år).
+Sammensæt en træning med disse sektioner:
+${secsDesc}
+
+Temaer: ${themes.length ? themes.join(', ') : 'ingen specifikke'}
+Variation: ${vary ? 'Undgå øvelser markeret recent:true hvis muligt' : 'Gentag gerne nylige øvelser'}
+
+Katalog med øvelsernes standardvarighed (brug KUN disse IDs):
 ${JSON.stringify(catalogSummary)}
 
-Returner KUN et JSON-array med sektioner i dette format (ingen tekst før eller efter):
-[
-  {"type":"opvarmning","mins":20,"exercises":[{"exerciseId":"xxx","mins":10},{"exerciseId":"yyy","mins":10}]},
-  ...
-]
+Returner KUN et JSON-array – ingen tekst før eller efter:
+[{"type":"opvarmning","mins":15,"exercises":[{"exerciseId":"ID","mins":8},{"exerciseId":"ID","mins":7}]},...]
 
 Regler:
-- Brug kun exercise IDs fra kataloget
-- Vælg øvelser der matcher sektionens type og træningens temaer
-- Foretrræk øvelser med høje stars
-- Fordel minutter fornuftigt inden for sektionen
-- Maks 4-6 øvelser per sektion
-- Sektionstype skal være en af: ${SECTIONS.map(s=>s.id).join(', ')}`;
+- Overhold maks antal øvelser per sektion
+- Brug defaultMins som udgangspunkt for minuttal per øvelse, juster så summen passer til sektionens total
+- Vælg øvelser der passer til sektionens type og temaerne
+- Foretrræk høje stars
+- Brug kun IDs fra kataloget ovenfor`;
 
   const aiUrl = S.aiWorkerUrl || lsLoad('aiWorkerUrl','');
   if (!aiUrl) throw new Error('AI Worker URL ikke sat – gå til Indstillinger');
@@ -1490,6 +1541,17 @@ function html_indstillinger_tab() {
     ((S.users||[]).length===0?'<p style="font-size:12px;color:var(--text3);">Ingen brugere</p>':'') +
     '</div></div>' +
 
+    // AI indstillinger
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header"><span class="card-title">✨ AI – Fallback minutter per sektion</span></div>' +
+    '<div class="card-body">' +
+    '<p style="font-size:12px;color:var(--text2);margin-bottom:12px;">Bruges når en øvelse ikke har en vejledende varighed. Sæt hvad der typisk passer for din aldersgruppe.</p>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+    SECTIONS.map(s => { const val=(S.aiMinsPerEx||{})[s.id]||15; return '<div class="form-group" style="margin:0;"><label style="color:'+s.color+';font-size:11px;">'+s.label+'</label><div style="display:flex;align-items:center;gap:6px;"><input type="number" id="ai-mpe-'+s.id+'" value="'+val+'" min="1" max="60" step="1" style="width:56px;text-align:center;"'+(canAdmin()?'':' disabled')+'><span style="font-size:11px;color:var(--text2);">min/øv</span></div></div>'; }).join('') +
+    '</div>' +
+    (canAdmin() ? '<button class="btn btn-secondary btn-sm" id="ai-mpe-save" style="margin-top:12px;">Gem</button>' : '<p style="font-size:11px;color:var(--text3);margin-top:8px;">Kræver Årgangsansvarlig</p>') +
+    '</div></div>' +
+
     // Skabeloner
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1520,7 +1582,7 @@ function html_indstillinger_tab() {
 document.addEventListener('click', e=>{
   const el=e.target.closest('[data-pickex]');
   if(el && S.draft && S.modal?.type==='pickEx'){
-    S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:10});
+    const _ex=S.halCatalog.concat(S.fysCatalog).find(e=>e.id===el.dataset.pickex);S.draft.sections[+el.dataset.si].exercises.push({exerciseId:el.dataset.pickex,mins:(_ex&&_ex.defaultMins)||10});
     S.modal=null;render();
   }
   // Load sections from template into existing draft
@@ -1624,14 +1686,36 @@ if (!document._aiSuggestBound) { document._aiSuggestBound = true;
     if (themePill && ge('ai-theme-picks')) { themePill.classList.toggle('active'); return; }
     if (e.target.closest('#ai-vary-yes')) { ge('ai-vary-yes')?.classList.add('active'); ge('ai-vary-no')?.classList.remove('active'); return; }
     if (e.target.closest('#ai-vary-no')) { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
+    // Add section row
+    if (e.target.closest('#ai-sec-add')) {
+      const list = ge('ai-sec-list');
+      if (!list) return;
+      const i = list.querySelectorAll('.ai-sec-row').length;
+      const div = document.createElement('div');
+      div.className = 'ai-sec-row';
+      div.dataset.row = i;
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;';
+      div.innerHTML = `<select class="ai-sec-type" style="flex:1;">${SECTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select><input type="number" class="ai-sec-mins" value="15" min="5" max="60" step="5" style="width:64px;text-align:center;"><span style="font-size:11px;color:var(--text2);">min</span><button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
+      list.appendChild(div);
+      return;
+    }
+    // Delete section row
+    if (e.target.closest('.ai-sec-del')) {
+      e.target.closest('.ai-sec-row')?.remove();
+      return;
+    }
     if (e.target.closest('#ai-suggest-go')) {
-      const secs = [...document.querySelectorAll('[data-aisec].active')].map(el=>el.dataset.aisec);
-      if (!secs.length) { toast('Vælg mindst én sektion', 'err'); return; }
+      const rows = [...document.querySelectorAll('.ai-sec-row')];
+      if (!rows.length) { toast('Tilføj mindst én sektion', 'err'); return; }
+      const secsMins = rows.map(row => ({
+        type: row.querySelector('.ai-sec-type')?.value || 'opvarmning',
+        mins: parseInt(row.querySelector('.ai-sec-mins')?.value||15),
+      }));
       const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
       const custom = (ge('ai-theme-custom')?.value||'').trim();
       if (custom) themes.push(custom);
       const vary = !ge('ai-vary-no')?.classList.contains('active');
-      window._aiLastSecs=secs; window._aiLastThemes=themes; window._aiLastVary=vary;
+      window._aiLastSecs=secsMins; window._aiLastThemes=themes; window._aiLastVary=vary;
       S.modal = {type:'aiLoading'}; render();
       try { const sections = await runAISuggest(secs, themes, vary); S.modal = {type:'aiResult', sections}; render(); }
       catch(err) { toast('AI fejl: ' + err.message, 'err'); S.modal = {type:'aiSuggest'}; render(); }
@@ -1693,6 +1777,7 @@ function bind() {
   ge('cfg-hs-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-token')?.value?.trim();S.hsAppToken=v||'';lsSave('hsAppToken',S.hsAppToken);toast('Holdsport APP_TOKEN gemt ✓');});
   ge('cfg-hs-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-hs-url')?.value?.trim().replace(/\/$/,'');S.hsWorkerUrl=v||'';lsSave('hsWorkerUrl',S.hsWorkerUrl);toast('Holdsport Worker URL gemt ✓');});
   ge('cfg-ai-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-ai-url')?.value?.trim().replace(/\/$/,'');S.aiWorkerUrl=v||'';lsSave('aiWorkerUrl',S.aiWorkerUrl);toast('AI Worker URL gemt ✓');});
+
   ge('tipDismissBtn')?.addEventListener('click',()=>{S.tipDismissed=true;lsSave('tipDismissed',true);render();});
 
   // ── LOGIN ──
@@ -2236,7 +2321,8 @@ function saveExercise(exId) {
   const catalog=v('ex-cat')||'hal';
   const ex={id:exId!=='new'?exId:uid(),name:n,stars,catalog,
     description:v('ex-d')||'',tags:(v('ex-t')||'').split(',').map(x=>x.trim()).filter(Boolean),
-    variants:v('ex-v')||'',link:v('ex-l')||'',
+    variants:v('ex-v')||'',link:v('ex-l')||'',defaultMins:Math.max(1,parseInt(v('ex-dm'))||10),
+    defaultMins: parseInt(v('ex-mins')||'') || null,
     image: window._exImage !== undefined ? window._exImage : (()=>{const arr=catalog==='hal'?S.halCatalog:S.fysCatalog;return (arr.find(e=>e.id===exId)||{}).image||null;})()};
   const arr=catalog==='hal'?S.halCatalog:S.fysCatalog;
   const idx=arr.findIndex(e=>e.id===ex.id);
