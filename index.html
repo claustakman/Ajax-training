@@ -283,12 +283,13 @@ async function kvSave(patch) {
 // ─── CATALOG HELPERS (kept for export/import) ─────────────────────────────────
 function catalogToRows(exercises) {
   return [
-    ['navn','beskrivelse','stjærner','tags','varianter','link','katalog','kategori','id','aldersgruppe'],
+    ['navn','beskrivelse','stjærner','tags','varianter','link','katalog','kategori','id','aldersgruppe','vejledende minutter'],
     ...exercises.map(e => [
       e.name||'', e.description||'', e.stars||0,
       (e.tags||[]).join(';'), e.variants||'', e.link||'',
       e.catalog||'hal', e.category||'', e.id||'',
       (Array.isArray(e.aldersgrupper)?e.aldersgrupper.join(';'):(e.aldersgrupper||'')),
+      e.defaultMins||'',
     ])
   ];
 }
@@ -308,6 +309,7 @@ function rowsToCatalog(rows, defaultCatalog) {
     catalog:      r[idx('katalog')]     || defaultCatalog,
     category:     r[idx('kategori')]    || '',
     aldersgrupper:(r[idx('aldersgruppe')]||'').split(';').map(x=>x.trim()).filter(Boolean),
+    defaultMins:parseInt(r[idx('vejledende minutter')]||r[idx('vejledende_minutter')]||'')||null,
   })).filter(e => e.name);
 }
 
@@ -2434,7 +2436,7 @@ function durMin(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(':').map(Number),[e
 function exportCatalog(fmt){
   const cat=S.catTab==='hal'?S.halCatalog:S.fysCatalog;
   const name=S.catTab==='hal'?'Haltræning':'Fysisk_træning';
-  const cols=['Navn','Beskrivelse','Stjerner','Tags','Varianter','Link','Katalog','Kategori','ID','Aldersgruppe'];
+  const cols=['Navn','Beskrivelse','Stjerner','Tags','Varianter','Link','Katalog','Kategori','ID','Aldersgruppe','Vejledende minutter'];
   const rows=cat.map(e=>[
     e.name||'',
     e.description||'',
@@ -2445,7 +2447,8 @@ function exportCatalog(fmt){
     e.catalog||'',
     e.category||'',
     e.id||'',
-    (Array.isArray(e.aldersgrupper)?e.aldersgrupper.join(';'):(e.aldersgrupper||''))
+    (Array.isArray(e.aldersgrupper)?e.aldersgrupper.join(';'):(e.aldersgrupper||'')),
+    e.defaultMins||''
   ]);
   if(fmt==='csv'){
     const esc=v=>'"'+String(v).replace(/"/g,'""')+'"';
