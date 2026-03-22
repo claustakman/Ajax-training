@@ -2040,7 +2040,7 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     }
     // ── collapse ─────────────────────────────────────────────────
     const colEl=e.target.closest('[data-collapse]');
-    if(colEl&&S.draft&&!e.target.closest('[data-movesec],[data-addex],[data-delsec],[data-par],[data-secmins]')){
+    if(colEl&&S.draft&&!e.target.closest('[data-movesec],[data-addex],[data-delsec],[data-par],[data-secmins],[data-aisec-suggest],[data-grpsel]')){
       const si=+colEl.dataset.collapse;
       if(S.draft.sections[si]!=null){S.draft.sections[si].collapsed=!S.draft.sections[si].collapsed;renderSecs();}
       return;
