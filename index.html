@@ -1705,6 +1705,7 @@ if (!document._aiSuggestBound) { document._aiSuggestBound = true;
   document.addEventListener('click', async e => {
     // Open per-section AI suggest
     const aiSecSuggest = e.target.closest('[data-aisec-suggest]');
+    if (aiSecSuggest) { console.log('aiSecSuggest clicked, si=', aiSecSuggest.dataset.aisecSuggest, 'draft=', !!S.draft); }
     if (aiSecSuggest && S.draft) { e.stopPropagation(); requireUnlock(()=>{S.modal={type:'aiSecSuggest',si:+aiSecSuggest.dataset.aisecSuggest};render();}); return; }
     // Theme toggles for section AI
     const aisecTheme = e.target.closest('[data-aisectheme]');
