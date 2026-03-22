@@ -1254,21 +1254,32 @@ async function runAISuggest(secsMins, themes, vary) {
 
   // Build catalog summary - only include relevant exercises per section type
   const secTypes = [...new Set(secsMins.map(s=>s.type))];
+  // Strict tag mapping - only exercises with these exact tags qualify for each section
   const tagMap = {
-    fysisk:['plyometrik','eksplosion','styrke','hurtighed'],
-    opvarmning:['opvarmning','leg','stafet','småspil','tvekamp'],
-    afleveringer:['aflevering','hurtighed'],
-    kontra:['kontra','returløb'],
-    teknik:['skud','finter','duel','keeper','faldteknik'],
-    spil:['sammenspil','beslutning','taktik','kamp','forsvar'],
-    keeper:['keeper'],
-    forsvar:['forsvar','taktik'],
+    fysisk:      ['plyometrik','eksplosion','styrke'],
+    opvarmning:  ['opvarmning','leg','stafet','tvekamp','småspil'],
+    afleveringer:['aflevering','afleveringer'],
+    kontra:      ['kontra','returløb'],
+    teknik:      ['skud','finter','duel','faldteknik','teknik'],
+    spil:        ['sammenspil','beslutning','taktik','kamp','overgang'],
+    keeper:      ['keeper'],
+    forsvar:     ['forsvar','taktik'],
+  };
+  // For filtering: each section ONLY sees exercises with at least one matching tag
+  // hurtighed is shared but context-dependent - include it in multiple sections
+  const tagMapExtra = {
+    fysisk:      ['hurtighed'],
+    afleveringer:['hurtighed','sammenspil'],
+    teknik:      ['hurtighed'],
   };
   // Build catalog summary with defaultMins
   const catalogSummary = all
     .filter(e => {
       const eTags = e.tags||[];
-      return secTypes.some(t => (tagMap[t]||[]).some(tag => eTags.includes(tag)) || eTags.includes(t));
+      return secTypes.some(t =>
+        (tagMap[t]||[]).some(tag => eTags.includes(tag)) ||
+        (tagMapExtra[t]||[]).some(tag => eTags.includes(tag))
+      );
     })
     .map(e => ({
       id: e.id,
@@ -1286,7 +1297,8 @@ async function runAISuggest(secsMins, themes, vary) {
     // Find relevant exercises for this section
     const relExs = catalogSummary.filter(e => {
       const eTags = e.tags.split(', ');
-      return (tagMap[s.type]||[]).some(tag=>eTags.includes(tag)) || eTags.includes(s.type);
+      return (tagMap[s.type]||[]).some(tag=>eTags.includes(tag)) ||
+             (tagMapExtra[s.type]||[]).some(tag=>eTags.includes(tag));
     });
     // Average defaultMins of relevant exercises
     const avgMins = relExs.length > 0
@@ -1296,25 +1308,42 @@ async function runAISuggest(secsMins, themes, vary) {
     return `${label}: ${s.mins} min total, ca. ${avgMins} min/øvelse → maks ${maxEx} øvelse${maxEx>1?'r':''}`;
   }).join('\n');
 
+  // Build per-section catalog slices for the prompt
+  const secCatalogs = secsMins.map(s => {
+    const eTags = [...(tagMap[s.type]||[]), ...(tagMapExtra[s.type]||[])];
+    const def = SECTIONS.find(x=>x.id===s.type);
+    return {
+      section: def ? def.label : s.type,
+      type: s.type,
+      mins: s.mins,
+      exercises: catalogSummary.filter(e => eTags.some(tag => e.tags.split(', ').includes(tag)))
+    };
+  });
+
   const prompt = `Du er assistent for en håndboldtræner for U11 piger (9-11 år).
-Sammensæt en træning med disse sektioner:
-${secsDesc}
+Sammensæt en træning. For HVER sektion er der angivet præcis hvilke øvelser der må bruges.
+
+${secCatalogs.map(sc => {
+  const avgMins = sc.exercises.length > 0
+    ? Math.round(sc.exercises.reduce((s,e)=>s+e.defaultMins,0)/sc.exercises.length)
+    : 10;
+  const maxEx = Math.max(1, Math.round(sc.mins / avgMins));
+  return `## ${sc.section} (${sc.mins} min, maks ${maxEx} øvelse${maxEx>1?'r':''})
+Tilgængelige øvelser: ${JSON.stringify(sc.exercises.map(e=>({id:e.id,name:e.name,stars:e.stars,defaultMins:e.defaultMins,recent:e.recent})))}`;
+}).join('\n\n')}
 
 Temaer: ${themes.length ? themes.join(', ') : 'ingen specifikke'}
-Variation: ${vary ? 'Undgå øvelser markeret recent:true hvis muligt' : 'Gentag gerne nylige øvelser'}
-
-Katalog med øvelsernes standardvarighed (brug KUN disse IDs):
-${JSON.stringify(catalogSummary)}
+Variation: ${vary ? 'Undgå recent:true øvelser hvis muligt' : 'Gentag gerne nylige øvelser'}
 
 Returner KUN et JSON-array – ingen tekst før eller efter:
 [{"type":"opvarmning","mins":15,"exercises":[{"exerciseId":"ID","mins":8},{"exerciseId":"ID","mins":7}]},...]
 
 Regler:
+- Brug KUN øvelser fra den pågældende sektions liste
 - Overhold maks antal øvelser per sektion
-- Brug defaultMins som udgangspunkt for minuttal per øvelse, juster så summen passer til sektionens total
-- Vælg øvelser der passer til sektionens type og temaerne
+- Brug defaultMins som udgangspunkt, juster så minutterne summerer til sektionens total
 - Foretrræk høje stars
-- Brug kun IDs fra kataloget ovenfor`;
+- Match temaer hvor muligt`;
 
   const aiUrl = S.aiWorkerUrl || lsLoad('aiWorkerUrl','');
   if (!aiUrl) throw new Error('AI Worker URL ikke sat – gå til Indstillinger');
