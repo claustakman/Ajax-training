@@ -1705,7 +1705,7 @@ if (!document._aiSuggestBound) { document._aiSuggestBound = true;
   document.addEventListener('click', async e => {
     // Open per-section AI suggest
     const aiSecSuggest = e.target.closest('[data-aisec-suggest]');
-    if (aiSecSuggest && S.draft) { requireUnlock(()=>{S.modal={type:'aiSecSuggest',si:+aiSecSuggest.dataset.aisecSuggest};render();}); return; }
+    if (aiSecSuggest && S.draft) { e.stopPropagation(); requireUnlock(()=>{S.modal={type:'aiSecSuggest',si:+aiSecSuggest.dataset.aisecSuggest};render();}); return; }
     // Theme toggles for section AI
     const aisecTheme = e.target.closest('[data-aisectheme]');
     if (aisecTheme) { aisecTheme.classList.toggle('active'); return; }
@@ -1743,7 +1743,8 @@ if (!document._aiSuggestBound) { document._aiSuggestBound = true;
     if (e.target.closest('#ai-vary-no')) { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
     // Add section row
     if (e.target.closest('#ai-sec-add')) {
-      const list = ge('ai-sec-list');
+      e.stopPropagation();
+      const list = document.getElementById('ai-sec-list');
       if (!list) return;
       const i = list.querySelectorAll('.ai-sec-row').length;
       const div = document.createElement('div');
@@ -1756,6 +1757,7 @@ if (!document._aiSuggestBound) { document._aiSuggestBound = true;
     }
     // Delete section row
     if (e.target.closest('.ai-sec-del')) {
+      e.stopPropagation();
       e.target.closest('.ai-sec-row')?.remove();
       return;
     }
