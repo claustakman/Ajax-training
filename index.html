@@ -1626,173 +1626,109 @@ document.addEventListener('click', e=>{
 });
 
 // ─── AI SUGGEST BINDINGS ─────────────────────────────────────────────────────
-if (!document._aiSuggestBound) { document._aiSuggestBound = true;
-  document.addEventListener('click', async e => {
-    // Toggle section pill
-    const secPill = e.target.closest('[data-aisec]');
-    if (secPill) { secPill.classList.toggle('active'); return; }
-
-    // Toggle theme pill
-    const themePill = e.target.closest('[data-aitheme]');
-    if (themePill) { themePill.classList.toggle('active'); return; }
-
-    // Toggle variation
-    if (e.target.closest('#ai-vary-yes')) {
-      ge('ai-vary-yes')?.classList.add('active');
-      ge('ai-vary-no')?.classList.remove('active');
-      return;
-    }
-    if (e.target.closest('#ai-vary-no')) {
-      ge('ai-vary-no')?.classList.add('active');
-      ge('ai-vary-yes')?.classList.remove('active');
-      return;
-    }
-
-    // Generate
-    if (e.target.closest('#ai-suggest-go')) {
-      const secs = [...document.querySelectorAll('[data-aisec].active')].map(el=>el.dataset.aisec);
-      if (!secs.length) { toast('Vælg mindst én sektion', 'err'); return; }
-
-      const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
-      const custom = (ge('ai-theme-custom')?.value||'').trim();
-      if (custom) themes.push(custom);
-
-      const vary = ge('ai-vary-yes')?.classList.contains('active') || false;
-
-      S.modal = {type:'aiLoading'}; render();
-      try {
-        const sections = await runAISuggest(secs, themes, vary);
-        window._aiLastSecs = secs;
-        window._aiLastThemes = themes;
-        window._aiLastVary = vary;
-        S.modal = {type:'aiResult', sections}; render();
-      } catch(err) {
-        toast('AI fejl: ' + err.message, 'err');
-        S.modal = null; render();
-      }
-      return;
-    }
-
-    // Retry
-    if (e.target.closest('#ai-retry')) {
-      S.modal = {type:'aiLoading'}; render();
-      try {
-        const sections = await runAISuggest(window._aiLastSecs||[], window._aiLastThemes||[], window._aiLastVary||false);
-        S.modal = {type:'aiResult', sections}; render();
-      } catch(err) {
-        toast('AI fejl: ' + err.message, 'err');
-        S.modal = null; render();
-      }
-      return;
-    }
-
-    // Accept result
-    if (e.target.closest('#ai-accept')) {
-      const m = S.modal;
-      if (m && m.sections) {
-        S.draft.sections = m.sections.map(s => ({...s, collapsed:false}));
+document.addEventListener('click', async e => {
+  // Per-section AI suggest button
+  const aiSecSuggest = e.target.closest('[data-aisec-suggest]');
+  if (aiSecSuggest && S.draft) {
+    e.stopPropagation();
+    requireUnlock(()=>{S.modal={type:'aiSecSuggest',si:+aiSecSuggest.dataset.aisecSuggest};render();});
+    return;
+  }
+  // Whole-training AI suggest button
+  if (e.target.closest('#aiSuggestBtn')) {
+    requireUnlock(()=>{S.modal={type:'aiSuggest'};render();});
+    return;
+  }
+  // Section pill toggle (in ai suggest modal)
+  const secPill = e.target.closest('[data-aisec]');
+  if (secPill && ge('ai-sec-picks')) { secPill.classList.toggle('active'); return; }
+  // Theme pill toggle
+  const themePill = e.target.closest('[data-aitheme]');
+  if (themePill && ge('ai-theme-picks')) { themePill.classList.toggle('active'); return; }
+  // Per-section theme toggle
+  const aisecTheme = e.target.closest('[data-aisectheme]');
+  if (aisecTheme) { aisecTheme.classList.toggle('active'); return; }
+  // Variation toggles
+  if (e.target.closest('#ai-vary-yes')) { ge('ai-vary-yes')?.classList.add('active'); ge('ai-vary-no')?.classList.remove('active'); return; }
+  if (e.target.closest('#ai-vary-no'))  { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
+  if (e.target.closest('#aisec-vary-yes')) { ge('aisec-vary-yes')?.classList.add('active'); ge('aisec-vary-no')?.classList.remove('active'); return; }
+  if (e.target.closest('#aisec-vary-no'))  { ge('aisec-vary-no')?.classList.add('active'); ge('aisec-vary-yes')?.classList.remove('active'); return; }
+  // Add section row in suggest modal
+  if (e.target.closest('#ai-sec-add')) {
+    e.stopPropagation();
+    const list = document.getElementById('ai-sec-list');
+    if (!list) return;
+    const i = list.querySelectorAll('.ai-sec-row').length;
+    const div = document.createElement('div');
+    div.className = 'ai-sec-row';
+    div.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    div.innerHTML = `<select class="ai-sec-type" style="flex:1;">${SECTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select><input type="number" class="ai-sec-mins" value="15" min="5" max="60" step="5" style="width:64px;text-align:center;"><span style="font-size:11px;color:var(--text2);">min</span><button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
+    list.appendChild(div);
+    return;
+  }
+  // Delete section row
+  if (e.target.closest('.ai-sec-del')) {
+    e.stopPropagation();
+    e.target.closest('.ai-sec-row')?.remove();
+    return;
+  }
+  // Generate whole-training suggestion
+  if (e.target.closest('#ai-suggest-go')) {
+    const rows = [...document.querySelectorAll('.ai-sec-row')];
+    if (!rows.length) { toast('Tilføj mindst én sektion', 'err'); return; }
+    const secsMins = rows.map(row => ({
+      type: row.querySelector('.ai-sec-type')?.value || 'opvarmning',
+      mins: parseInt(row.querySelector('.ai-sec-mins')?.value||15),
+    }));
+    const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
+    const custom = (ge('ai-theme-custom')?.value||'').trim();
+    if (custom) themes.push(custom);
+    const vary = !ge('ai-vary-no')?.classList.contains('active');
+    window._aiLastSecs=secsMins; window._aiLastThemes=themes; window._aiLastVary=vary;
+    S.modal={type:'aiLoading'}; render();
+    try { const sections=await runAISuggest(secsMins,themes,vary); S.modal={type:'aiResult',sections}; render(); }
+    catch(err) { toast('AI fejl: '+err.message,'err'); S.modal={type:'aiSuggest'}; render(); }
+    return;
+  }
+  // Generate per-section suggestion
+  if (e.target.closest('#aisec-go')) {
+    const btn = e.target.closest('#aisec-go');
+    const si = +btn.dataset.si;
+    const sec = S.draft?.sections[si];
+    if (!sec) return;
+    const themes = [...document.querySelectorAll('[data-aisectheme].active')].map(el=>el.dataset.aisectheme);
+    const vary = !ge('aisec-vary-no')?.classList.contains('active');
+    const secsMins = [{type:sec.type, mins:sec.mins||20}];
+    S.modal={type:'aiLoading'}; render();
+    try {
+      const sections = await runAISuggest(secsMins, themes, vary);
+      if (sections&&sections[0]) {
+        S.draft.sections[si].exercises = sections[0].exercises||[];
         renderSecs();
-        toast('Træning opdateret ✓');
+        toast('Øvelser genereret ✓');
       }
-      S.modal = null; render();
-      return;
+      S.modal=null; render();
+    } catch(err) {
+      toast('AI fejl: '+err.message,'err');
+      S.modal=null; render();
     }
-  });
-}
-
-// ─── AI SUGGEST BINDINGS ─────────────────────────────────────────────────────
-if (!document._aiSuggestBound) { document._aiSuggestBound = true;
-  document.addEventListener('click', async e => {
-    // Open per-section AI suggest
-    const aiSecSuggest = e.target.closest('[data-aisec-suggest]');
-    if (aiSecSuggest) { console.log('aiSecSuggest clicked, si=', aiSecSuggest.dataset.aisecSuggest, 'draft=', !!S.draft); }
-    if (aiSecSuggest && S.draft) { e.stopPropagation(); requireUnlock(()=>{S.modal={type:'aiSecSuggest',si:+aiSecSuggest.dataset.aisecSuggest};render();}); return; }
-    // Theme toggles for section AI
-    const aisecTheme = e.target.closest('[data-aisectheme]');
-    if (aisecTheme) { aisecTheme.classList.toggle('active'); return; }
-    if (e.target.closest('#aisec-vary-yes')) { ge('aisec-vary-yes')?.classList.add('active'); ge('aisec-vary-no')?.classList.remove('active'); return; }
-    if (e.target.closest('#aisec-vary-no')) { ge('aisec-vary-no')?.classList.add('active'); ge('aisec-vary-yes')?.classList.remove('active'); return; }
-    // Generate for single section
-    if (e.target.closest('#aisec-go')) {
-      const btn = e.target.closest('#aisec-go');
-      const si = +btn.dataset.si;
-      const sec = S.draft?.sections[si];
-      if (!sec) return;
-      const themes = [...document.querySelectorAll('[data-aisectheme].active')].map(el=>el.dataset.aisectheme);
-      const vary = !ge('aisec-vary-no')?.classList.contains('active');
-      const secsMins = [{type: sec.type, mins: sec.mins||20}];
-      S.modal = {type:'aiLoading'}; render();
-      try {
-        const sections = await runAISuggest(secsMins, themes, vary);
-        if (sections && sections[0]) {
-          sec.exercises = sections[0].exercises || [];
-          renderSecs();
-          toast('Øvelser genereret ✓');
-        }
-        S.modal = null; render();
-      } catch(err) {
-        toast('AI fejl: ' + err.message, 'err');
-        S.modal = null; render();
-      }
-      return;
-    }
-    const secPill = e.target.closest('[data-aisec]');
-    if (secPill && ge('ai-sec-picks')) { secPill.classList.toggle('active'); return; }
-    const themePill = e.target.closest('[data-aitheme]');
-    if (themePill && ge('ai-theme-picks')) { themePill.classList.toggle('active'); return; }
-    if (e.target.closest('#ai-vary-yes')) { ge('ai-vary-yes')?.classList.add('active'); ge('ai-vary-no')?.classList.remove('active'); return; }
-    if (e.target.closest('#ai-vary-no')) { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
-    // Add section row
-    if (e.target.closest('#ai-sec-add')) {
-      e.stopPropagation();
-      const list = document.getElementById('ai-sec-list');
-      if (!list) return;
-      const i = list.querySelectorAll('.ai-sec-row').length;
-      const div = document.createElement('div');
-      div.className = 'ai-sec-row';
-      div.dataset.row = i;
-      div.style.cssText = 'display:flex;align-items:center;gap:8px;';
-      div.innerHTML = `<select class="ai-sec-type" style="flex:1;">${SECTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select><input type="number" class="ai-sec-mins" value="15" min="5" max="60" step="5" style="width:64px;text-align:center;"><span style="font-size:11px;color:var(--text2);">min</span><button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
-      list.appendChild(div);
-      return;
-    }
-    // Delete section row
-    if (e.target.closest('.ai-sec-del')) {
-      e.stopPropagation();
-      e.target.closest('.ai-sec-row')?.remove();
-      return;
-    }
-    if (e.target.closest('#ai-suggest-go')) {
-      const rows = [...document.querySelectorAll('.ai-sec-row')];
-      if (!rows.length) { toast('Tilføj mindst én sektion', 'err'); return; }
-      const secsMins = rows.map(row => ({
-        type: row.querySelector('.ai-sec-type')?.value || 'opvarmning',
-        mins: parseInt(row.querySelector('.ai-sec-mins')?.value||15),
-      }));
-      const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
-      const custom = (ge('ai-theme-custom')?.value||'').trim();
-      if (custom) themes.push(custom);
-      const vary = !ge('ai-vary-no')?.classList.contains('active');
-      window._aiLastSecs=secsMins; window._aiLastThemes=themes; window._aiLastVary=vary;
-      S.modal = {type:'aiLoading'}; render();
-      try { const sections = await runAISuggest(secs, themes, vary); S.modal = {type:'aiResult', sections}; render(); }
-      catch(err) { toast('AI fejl: ' + err.message, 'err'); S.modal = {type:'aiSuggest'}; render(); }
-      return;
-    }
-    if (e.target.closest('#ai-retry')) {
-      S.modal = {type:'aiLoading'}; render();
-      try { const sections = await runAISuggest(window._aiLastSecs||[], window._aiLastThemes||[], window._aiLastVary||false); S.modal = {type:'aiResult', sections}; render(); }
-      catch(err) { toast('AI fejl: ' + err.message, 'err'); S.modal = null; render(); }
-      return;
-    }
-    if (e.target.closest('#ai-accept')) {
-      const m = S.modal;
-      if (m && m.sections) { S.draft.sections = m.sections.map(s=>({...s,collapsed:false})); renderSecs(); toast('Træning opdateret ✓'); }
-      S.modal = null; render();
-      return;
-    }
-  });
-}
+    return;
+  }
+  // Retry
+  if (e.target.closest('#ai-retry')) {
+    S.modal={type:'aiLoading'}; render();
+    try { const sections=await runAISuggest(window._aiLastSecs||[],window._aiLastThemes||[],window._aiLastVary||false); S.modal={type:'aiResult',sections}; render(); }
+    catch(err) { toast('AI fejl: '+err.message,'err'); S.modal=null; render(); }
+    return;
+  }
+  // Accept result
+  if (e.target.closest('#ai-accept')) {
+    const m=S.modal;
+    if (m&&m.sections) { S.draft.sections=m.sections.map(s=>({...s,collapsed:false})); renderSecs(); toast('Træning opdateret ✓'); }
+    S.modal=null; render();
+    return;
+  }
+});
 
 // ─── ROLE HELPERS ────────────────────────────────────────────────────────────
 function userRole() { return (S.currentUser && S.currentUser.role) || 'guest'; }
@@ -1828,7 +1764,6 @@ function bind() {
   ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
-  ge('aiSuggestBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'aiSuggest'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
   ge('cfg-kv-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-url')?.value?.trim().replace(/\/$/,'');S.kvWorkerUrl=v||'';lsSave('kvWorkerUrl',S.kvWorkerUrl);toast('KV Worker URL gemt – henter data…');loadFromKV();});
   ge('cfg-kv-token-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-kv-token')?.value?.trim();S.kvAppToken=v||'';lsSave('kvAppToken',S.kvAppToken);toast('APP_TOKEN gemt – henter data…');loadFromKV();});
