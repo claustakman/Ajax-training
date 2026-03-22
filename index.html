@@ -1238,6 +1238,22 @@ function html_m_ai_sec_suggest(si) {
   return mwrap(mhead('✨ AI forslag – ' + def.label) + h, 'modal-sm');
 }
 
+function validateAISections(sections) {
+  // Filter out exercises with IDs not in catalog
+  const all = S.halCatalog.concat(S.fysCatalog);
+  const validIds = new Set(all.map(e=>e.id));
+  return sections.map(sec => ({
+    ...sec,
+    exercises: (sec.exercises||[]).filter(ex => {
+      if (!validIds.has(ex.exerciseId)) {
+        console.warn('AI returned unknown exerciseId:', ex.exerciseId);
+        return false;
+      }
+      return true;
+    })
+  })).filter(sec => sec.exercises.length > 0);
+}
+
 async function runAISuggest(secsMins, themes, vary) {
   // secsMins = [{type, mins}, ...]
   const all = S.halCatalog.concat(S.fysCatalog);
@@ -1715,7 +1731,7 @@ document.addEventListener('click', async e => {
     const vary = !ge('ai-vary-no')?.classList.contains('active');
     window._aiLastSecs=secsMins; window._aiLastThemes=themes; window._aiLastVary=vary;
     S.modal={type:'aiLoading'}; render();
-    try { const sections=await runAISuggest(secsMins,themes,vary); S.modal={type:'aiResult',sections}; render(); }
+    try { const sections=validateAISections(await runAISuggest(secsMins,themes,vary)); S.modal={type:'aiResult',sections}; render(); }
     catch(err) { toast('AI fejl: '+err.message,'err'); S.modal={type:'aiSuggest'}; render(); }
     return;
   }
@@ -1746,7 +1762,7 @@ document.addEventListener('click', async e => {
   // Retry
   if (e.target.closest('#ai-retry')) {
     S.modal={type:'aiLoading'}; render();
-    try { const sections=await runAISuggest(window._aiLastSecs||[],window._aiLastThemes||[],window._aiLastVary||false); S.modal={type:'aiResult',sections}; render(); }
+    try { const sections=validateAISections(await runAISuggest(window._aiLastSecs||[],window._aiLastThemes||[],window._aiLastVary||false)); S.modal={type:'aiResult',sections}; render(); }
     catch(err) { toast('AI fejl: '+err.message,'err'); S.modal=null; render(); }
     return;
   }
