@@ -1145,45 +1145,61 @@ function html_m_manage_users() {
 // ─── AI TRÆNINGSFORSLAG ───────────────────────────────────────────────────────
 
 function html_m_ai_suggest() {
-  const themes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
-  const currentThemes = (S.draft&&S.draft.themes)||[];
   const existingSecs = (S.draft&&S.draft.sections)||[];
+  const trainingThemes = (S.draft&&S.draft.themes)||[];
+  const allQuarterThemes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  // Merge: training themes first, then any quarter themes
+  const activeThemes = [...new Set([...trainingThemes, ...allQuarterThemes])];
 
   let h = '<div class="modal-body">';
   h += '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Angiv sektioner og tid – AI vælger øvelser der passer.</p>';
 
+  // Temaer fra træningen (read-only info)
+  if (activeThemes.length) {
+    h += '<div class="form-group">';
+    h += '<label>Temaer (fra træningen)</label>';
+    h += '<div class="tags-wrap">';
+    activeThemes.forEach(t => h += `<span class="tag">${esc(t)}</span>`);
+    h += '</div></div>';
+  }
+
   // Sektioner med minutter
   h += '<div class="form-group"><label>Sektioner & varighed</label>';
   h += '<div id="ai-sec-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">';
-  // Pre-fill from existing sections
+  // Pre-fill: existing sections, or required sections + some defaults – but deduplicated by type
   const stypes = getSectionTypes();
-  const preFill = existingSecs.length
-    ? existingSecs.map(s => ({type:s.type, mins:s.mins||15}))
-    : [{type:'opvarmning',mins:15},{type:'teknik',mins:20},{type:'spil',mins:25}];
+  const requiredTypes = stypes.filter(st=>st.required).map(st=>st.id);
+  let preFill;
+  if (existingSecs.length) {
+    preFill = existingSecs.map(s => ({type:s.type, mins:s.mins||15}));
+    // Add any missing required types (prepend)
+    requiredTypes.forEach(rid => {
+      if (!preFill.some(s=>s.type===rid)) preFill.unshift({type:rid, mins:15});
+    });
+  } else {
+    // Start with required sections, then add a couple of common ones – all unique
+    const seen = new Set();
+    preFill = [];
+    requiredTypes.forEach(rid => { if(!seen.has(rid)){ seen.add(rid); preFill.push({type:rid, mins:15}); } });
+    // Add teknik and spil as common extras if not already required
+    [{type:'teknik',mins:20},{type:'spil',mins:25}].forEach(s => {
+      if (!seen.has(s.type)) { seen.add(s.type); preFill.push(s); }
+    });
+  }
   preFill.forEach((s,i) => {
     const def = stypes.find(x=>x.id===s.type)||stypes[0]||SECTIONS[0];
+    const isRequired = requiredTypes.includes(s.type);
     h += `<div class="ai-sec-row" style="display:flex;align-items:center;gap:8px;" data-row="${i}">`;
     h += `<select class="ai-sec-type" style="flex:1;border-left:3px solid ${def.color};">`;
-    stypes.forEach(sec => h += `<option value="${sec.id}"${sec.id===s.type?' selected':''}>${sec.label}</option>`);
+    stypes.forEach(sec => h += `<option value="${sec.id}"${sec.id===s.type?' selected':''}>${sec.label}${sec.required?' 🔒':''}</option>`);
     h += `</select>`;
     h += `<input type="number" class="ai-sec-mins" value="${s.mins}" min="5" max="60" step="5" style="width:64px;text-align:center;">`;
     h += `<span style="font-size:11px;color:var(--text2);">min</span>`;
-    h += `<button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
+    h += `<button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);"${isRequired?' title="Obligatorisk – anbefales ikke at slette"':''}>✕</button>`;
     h += `</div>`;
   });
   h += '</div>';
   h += '<button class="btn btn-ghost btn-xs" id="ai-sec-add">+ Tilføj sektion</button>';
-  h += '</div>';
-
-  // Temaer
-  h += '<div class="form-group"><label>Temaer</label>';
-  h += '<div class="pill-group" id="ai-theme-picks">';
-  themes.forEach(t => {
-    const active = currentThemes.includes(t);
-    h += `<button class="pill btn-xs${active?' active':''}" data-aitheme="${esc(t)}">${esc(t)}</button>`;
-  });
-  h += '</div>';
-  h += '<input id="ai-theme-custom" placeholder="Tilføj tema…" style="margin-top:8px;width:100%;">';
   h += '</div>';
 
   // Variation toggle
@@ -1242,8 +1258,10 @@ function html_m_ai_result(sections) {
 function html_m_ai_sec_suggest(si) {
   const sec = S.draft?.sections[si];
   const def = getSectionTypes().find(s=>s.id===sec?.type)||getSectionTypes()[0]||SECTIONS[0];
-  const themes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
-  const currentThemes = (S.draft&&S.draft.themes)||[];
+  // Temaer tages automatisk fra træningen
+  const trainingThemes = (S.draft&&S.draft.themes)||[];
+  const allQuarterThemes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  const activeThemes = [...new Set([...trainingThemes, ...allQuarterThemes])];
 
   let h = '<div class="modal-body">';
   h += `<div style="border-left:3px solid ${def.color};padding-left:10px;margin-bottom:14px;">`;
@@ -1251,12 +1269,14 @@ function html_m_ai_sec_suggest(si) {
   h += `<div style="font-size:12px;color:var(--text2);">${sec?.mins||'?'} min</div>`;
   h += '</div>';
 
-  h += '<div class="form-group"><label>Temaer</label><div class="pill-group" id="aisec-theme-picks">';
-  themes.forEach(t => {
-    const active = currentThemes.includes(t);
-    h += `<button class="pill btn-xs${active?' active':''}" data-aisectheme="${esc(t)}">${esc(t)}</button>`;
-  });
-  h += '</div></div>';
+  // Temaer fra træningen (read-only)
+  if (activeThemes.length) {
+    h += '<div class="form-group">';
+    h += '<label>Temaer (fra træningen)</label>';
+    h += '<div class="tags-wrap">';
+    activeThemes.forEach(t => h += `<span class="tag">${esc(t)}</span>`);
+    h += '</div></div>';
+  }
 
   h += '<div class="form-group"><label>Variation</label><div style="display:flex;gap:8px;margin-top:6px;">';
   h += '<button class="pill active" id="aisec-vary-yes" style="flex:1;justify-content:center;">🔄 Varier</button>';
@@ -1314,8 +1334,21 @@ function validateAISections(sections) {
   })).filter(sec => sec.exercises.length > 0);
 }
 
-async function runAISuggest(secsMins, themes, vary) {
+async function runAISuggest(secsMins, themesArg, vary) {
   // secsMins = [{type, mins}, ...]
+  // Temaer tages altid fra selve træningen (ikke fra modal)
+  const trainingThemes = (S.draft&&S.draft.themes)||[];
+  const allQuarterThemes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  const themes = [...new Set([...trainingThemes, ...allQuarterThemes, ...(themesArg||[])])];
+
+  // Håndhæv max én af hver sektionstype (behold første forekomst)
+  const seenTypes = new Set();
+  secsMins = secsMins.filter(s => {
+    if (seenTypes.has(s.type)) return false;
+    seenTypes.add(s.type);
+    return true;
+  });
+
   const all = S.halCatalog.concat(S.fysCatalog);
 
   // Recent exercise IDs to avoid (last 3 trainings)
@@ -1333,18 +1366,13 @@ async function runAISuggest(secsMins, themes, vary) {
   // Build tag/theme mapping from getSectionTypes()
   const sectionTypeDefs = getSectionTypes();
   const tagMap = {};
-  const tagMapExtra = {};
-  sectionTypeDefs.forEach(st => { tagMap[st.id] = st.tags || []; tagMapExtra[st.id] = []; });
-  // Build catalog summary with defaultMins
+  sectionTypeDefs.forEach(st => { tagMap[st.id] = st.tags || []; });
+
+  // Build catalog summary with defaultMins (include exercise if it matches ANY requested section's tags)
   const catalogSummary = all
     .filter(e => {
       const eTags = e.tags||[];
-      // Include exercise if it matches any section's tags OR any of the training themes
-      const matchesSection = secTypes.some(t =>
-        (tagMap[t]||[]).some(tag => eTags.includes(tag))
-      );
-      const matchesTheme = themes.some(th => eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
-      return matchesSection || matchesTheme;
+      return secTypes.some(t => (tagMap[t]||[]).some(tag => eTags.includes(tag)));
     })
     .map(e => ({
       id: e.id,
@@ -1355,41 +1383,43 @@ async function runAISuggest(secsMins, themes, vary) {
       recent: recentIds.has(e.id),
     }));
 
-  // Describe each section with estimated max exercises based on avg defaultMins of relevant exercises
-  const secsDesc = secsMins.map(s => {
-    const def = SECTIONS.find(x=>x.id===s.type);
-    const label = def ? def.label : s.type;
-    // Find relevant exercises for this section
-    const relExs = catalogSummary.filter(e => {
-      const eTags = e.tags.split(', ');
-      return (tagMap[s.type]||[]).some(tag=>eTags.includes(tag)) ||
-             (tagMapExtra[s.type]||[]).some(tag=>eTags.includes(tag));
-    });
-    // Average defaultMins of relevant exercises
-    const avgMins = relExs.length > 0
-      ? Math.round(relExs.reduce((sum,e)=>sum+e.defaultMins,0)/relExs.length)
-      : 10;
-    const maxEx = Math.max(1, Math.round(s.mins / avgMins));
-    return `${label}: ${s.mins} min total, ca. ${avgMins} min/øvelse → maks ${maxEx} øvelse${maxEx>1?'r':''}`;
-  }).join('\n');
-
-  // Build per-section catalog slices - match on tags AND training themes
+  // Build per-section catalog slices
+  // Rule: exercise MUST match the section's own tags (strict).
+  // Theme matching is used as a relevance SORT BOOST, not to add unrelated exercises.
   const secCatalogs = secsMins.map(s => {
     const stDef = sectionTypeDefs.find(x=>x.id===s.type);
     const secTags = stDef ? stDef.tags || [] : [];
+    // Section-type-specific themes (from Settings) + training themes
     const secThemes = stDef ? stDef.themes || [] : [];
-    // Active themes: training themes + section-specific themes
     const activeThemes = [...themes, ...secThemes];
-    const exercises = catalogSummary.filter(e => {
-      const eTags = e.tags.split(', ');
-      // Must match section tags
-      const tagMatch = secTags.some(tag => eTags.includes(tag));
-      // Bonus: also include if matches a theme keyword
-      const themeMatch = activeThemes.some(th =>
-        eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase()))
-      );
-      return tagMatch || themeMatch;
+
+    // Filter: MUST match section tags (strict tag filter = correct section type)
+    let exercises = catalogSummary.filter(e => {
+      const eTags = e.tags.split(', ').filter(Boolean);
+      return secTags.some(tag => eTags.includes(tag));
     });
+
+    // If section has no configured tags, fall back to theme matching as a last resort
+    if (secTags.length === 0 && activeThemes.length > 0) {
+      exercises = catalogSummary.filter(e => {
+        const eTags = e.tags.split(', ').filter(Boolean);
+        return activeThemes.some(th =>
+          eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase()))
+        );
+      });
+    }
+
+    // Sort: theme-matching exercises first, then by stars descending
+    if (activeThemes.length > 0) {
+      exercises = exercises.slice().sort((a, b) => {
+        const aTheme = activeThemes.some(th => a.tags.split(', ').some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
+        const bTheme = activeThemes.some(th => b.tags.split(', ').some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
+        if (aTheme && !bTheme) return -1;
+        if (!aTheme && bTheme) return 1;
+        return (b.stars||0) - (a.stars||0);
+      });
+    }
+
     return {
       section: stDef ? stDef.label : s.type,
       type: s.type,
@@ -1771,12 +1801,7 @@ document.addEventListener('click', async e => {
   // Section pill toggle (in ai suggest modal)
   const secPill = e.target.closest('[data-aisec]');
   if (secPill && ge('ai-sec-picks')) { secPill.classList.toggle('active'); return; }
-  // Theme pill toggle
-  const themePill = e.target.closest('[data-aitheme]');
-  if (themePill && ge('ai-theme-picks')) { themePill.classList.toggle('active'); return; }
-  // Per-section theme toggle
-  const aisecTheme = e.target.closest('[data-aisectheme]');
-  if (aisecTheme) { aisecTheme.classList.toggle('active'); return; }
+  // (theme pill toggles removed – themes are taken directly from the training)
   // Variation toggles
   if (e.target.closest('#ai-vary-yes')) { ge('ai-vary-yes')?.classList.add('active'); ge('ai-vary-no')?.classList.remove('active'); return; }
   if (e.target.closest('#ai-vary-no'))  { ge('ai-vary-no')?.classList.add('active'); ge('ai-vary-yes')?.classList.remove('active'); return; }
@@ -1813,13 +1838,11 @@ document.addEventListener('click', async e => {
     getSectionTypes().filter(st=>st.required).forEach(st => {
       if (!secsMins.some(s=>s.type===st.id)) secsMins.unshift({type:st.id, mins:15});
     });
-    const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
-    const custom = (ge('ai-theme-custom')?.value||'').trim();
-    if (custom) themes.push(custom);
+    // Temaer tages fra træningen i runAISuggest – send tom liste herfra
     const vary = !ge('ai-vary-no')?.classList.contains('active');
-    window._aiLastSecs=secsMins; window._aiLastThemes=themes; window._aiLastVary=vary;
+    window._aiLastSecs=secsMins; window._aiLastThemes=[]; window._aiLastVary=vary;
     S.modal={type:'aiLoading'}; render();
-    try { const sections=validateAISections(await runAISuggest(secsMins,themes,vary)); S.modal={type:'aiResult',sections}; render(); }
+    try { const sections=validateAISections(await runAISuggest(secsMins,[],vary)); S.modal={type:'aiResult',sections}; render(); }
     catch(err) { toast('AI fejl: '+err.message,'err'); S.modal={type:'aiSuggest'}; render(); }
     return;
   }
@@ -1829,7 +1852,7 @@ document.addEventListener('click', async e => {
     const si = +btn.dataset.si;
     const sec = S.draft?.sections[si];
     if (!sec) return;
-    const themes = [...document.querySelectorAll('[data-aisectheme].active')].map(el=>el.dataset.aisectheme);
+    // Temaer tages fra træningen i runAISuggest – send tom liste herfra
     const vary = !ge('aisec-vary-no')?.classList.contains('active');
     const secsMins = [{type:sec.type, mins:sec.mins||20}];
     S.modal={type:'aiLoading'}; render();
