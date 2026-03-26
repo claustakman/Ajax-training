@@ -241,6 +241,30 @@ const SECTIONS  = [
   {id:'keeper',       label:'Keepertræning',        color:'#ec4899',cls:'sc-keeper'},
   {id:'forsvar',      label:'Forsvarstræning',      color:'#f97316',cls:'sc-forsvar'},
 ];
+const DEFAULT_SECTION_TYPES = [
+  {id:'fysisk',       label:'Fysisk træning',    color:'#f59e0b', cls:'sc-fysisk',
+   tags:['plyometrik','eksplosion','styrke','hurtighed'], themes:[], required:false},
+  {id:'opvarmning',   label:'Opvarmning',         color:'#22c55e', cls:'sc-opvarmning',
+   tags:['opvarmning','leg','stafet','tvekamp','småspil'], themes:[], required:true},
+  {id:'afleveringer', label:'Afleveringer',        color:'#3b82f6', cls:'sc-afleveringer',
+   tags:['aflevering','afleveringer','sammenspil','hurtighed'], themes:[], required:true},
+  {id:'kontra',       label:'Kontra',              color:'#C8102E', cls:'sc-kontra',
+   tags:['kontra','returløb'], themes:[], required:false},
+  {id:'teknik',       label:'Teknik & afslutning', color:'#8b5cf6', cls:'sc-teknik',
+   tags:['skud','finter','duel','faldteknik','teknik'], themes:[], required:false},
+  {id:'spil',         label:'Spil & taktik',       color:'#06b6d4', cls:'sc-spil',
+   tags:['sammenspil','beslutning','taktik','kamp','overgang'], themes:[], required:false},
+  {id:'keeper',       label:'Keepertræning',        color:'#ec4899', cls:'sc-keeper',
+   tags:['keeper'], themes:[], required:false},
+  {id:'forsvar',      label:'Forsvarstræning',      color:'#f97316', cls:'sc-forsvar',
+   tags:['forsvar','taktik'], themes:[], required:false},
+];
+
+// Live accessor - use KV-stored types if available, else defaults
+function getSectionTypes() {
+  return (S.sectionTypes && S.sectionTypes.length) ? S.sectionTypes : DEFAULT_SECTION_TYPES;
+}
+
 const QUARTERS = [
   {id:'Q2a',label:'Q2',months:'Maj – Jun',color:'#22c55e',season:'Sæsonstart'},
   {id:'Q3', label:'Q3',months:'Aug – Sep',color:'#3b82f6',season:'Efterår'},
@@ -323,6 +347,7 @@ const S = {
   halCatalog: INIT_HAL,
   fysCatalog: INIT_PLYO,
   templates:  [],
+  sectionTypes: [], // loaded from KV, falls back to DEFAULT_SECTION_TYPES
   draft: null, draftInfoCollapsed: lsLoad('infoCollapsed', true), modal: null, currentUser: lsLoad('currentUser', null), tipDismissed: lsLoad('tipDismissed', false),
   catTab: 'hal', catSearch: '', catFilter: {tags:[], stars:0}, ageGroup: lsLoad('ageGroup','U11'), kvWorkerUrl: lsLoad('kvWorkerUrl','https://traening-worker.claus-takman.workers.dev'), kvAppToken: lsLoad('kvAppToken',''), hsWorkerUrl: lsLoad('hsWorkerUrl','https://holdsport-worker.claus-takman.workers.dev'), hsAppToken: lsLoad('hsAppToken',''), aiWorkerUrl: lsLoad('aiWorkerUrl','https://ajax-ai-proxy.claus-takman.workers.dev'), sheetsId: lsLoad('sheetsId',''),
   archFilter: {stars:0, trainer:'', loc:''},
@@ -348,6 +373,8 @@ async function pushToKV(type) {
     if (type === 'quarters'  || type === 'all') patch.quarters  = S.quarters;
     if (type === 'hal'       || type === 'all') patch.hal       = S.halCatalog;
     if (type === 'fys'       || type === 'all') patch.fys       = S.fysCatalog;
+    if (type === 'sectionTypes' || type === 'all') patch.sectionTypes = S.sectionTypes;
+    if (type === 'sectionTypes' || type === 'all') patch.sectionTypes = S.sectionTypes;
     await kvSave(patch);
     S.syncStatus = 'ok'; updateSyncUI();
   } catch(e) {
@@ -372,6 +399,7 @@ async function loadFromKV() {
         return saved ? {...q, themes: saved.themes || ['','']} : {...q, themes: ['','']};
       });
     }
+    if (data.sectionTypes) S.sectionTypes = parse(data.sectionTypes);
     const hal = data.hal ? parse(data.hal) : null;
     const fys = data.fys ? parse(data.fys) : null;
     if (hal && hal.length) { S.halCatalog = hal; }
@@ -657,7 +685,7 @@ function renderSecs() {
 }
 
 function html_sec(sec,si) {
-  const def=SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
+  const def=getSectionTypes().find(s=>s.id===sec.type)||SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
   const collapsed=sec.collapsed||false;
   const exCount=(sec.exercises||[]).length;
   return `<div class="sec-block ${def.cls}${sec.group?` grp-border-${sec.group}`:''}" data-si="${si}">
@@ -808,7 +836,7 @@ function html_arkiv_tab() {
 // ─── MODALS ───────────────────────────────────────────────────────────────────
 function html_modal() {
   const m=S.modal;
-  if(m.type==='addSec')   return mwrap(mhead('Tilføj sektion')+`<div class="modal-body"><div class="grid-2">${SECTIONS.map(s=>`<button class="list-item" style="border-left:3px solid ${s.color};" data-picksec="${s.id}"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${s.color};">${s.label}</div></button>`).join('')}</div></div>`);
+  if(m.type==='addSec')   return mwrap(mhead('Tilføj sektion')+`<div class="modal-body"><div class="grid-2">${getSectionTypes().map(s=>`<button class="list-item" style="border-left:3px solid ${s.color};" data-picksec="${s.id}"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${s.color};">${s.label}</div></button>`).join('')}</div></div>`);
   if(m.type==='pickEx')   return html_m_pickex();
   if(m.type==='editEx'||m.type==='newEx') return html_m_editex(m.type==='editEx'?m.ex:null);
   if(m.type==='import')   return html_m_import();
@@ -817,6 +845,8 @@ function html_modal() {
   if(m.type==='saveTmpl') return mwrap(mhead('Gem som skabelon')+`<div class="modal-body"><div class="form-group"><label>Navn</label><input id="tmpl-n" placeholder="fx Standard tirsdagstræning" autofocus></div></div><div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button><button class="btn btn-primary" id="confirmTmpl">Gem</button></div>`,'modal-sm');
   if(m.type==='loadTmpl')    return html_m_load_tmpl();
   if(m.type==='aiSuggest')   return html_m_ai_suggest();
+  if(m.type==='sectypeEdit') return html_m_sectype_edit(m.idx);
+  if(m.type==='sectypeEdit') return html_m_sectype_edit(m.idx);
   if(m.type==='aiSecSuggest') return html_m_ai_sec_suggest(m.si);
   if(m.type==='aiLoading')   return html_m_ai_loading();
   if(m.type==='aiResult')    return html_m_ai_result(m.sections);
@@ -1126,14 +1156,15 @@ function html_m_ai_suggest() {
   h += '<div class="form-group"><label>Sektioner & varighed</label>';
   h += '<div id="ai-sec-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">';
   // Pre-fill from existing sections
+  const stypes = getSectionTypes();
   const preFill = existingSecs.length
     ? existingSecs.map(s => ({type:s.type, mins:s.mins||15}))
     : [{type:'opvarmning',mins:15},{type:'teknik',mins:20},{type:'spil',mins:25}];
   preFill.forEach((s,i) => {
-    const def = SECTIONS.find(x=>x.id===s.type)||SECTIONS[0];
+    const def = stypes.find(x=>x.id===s.type)||stypes[0]||SECTIONS[0];
     h += `<div class="ai-sec-row" style="display:flex;align-items:center;gap:8px;" data-row="${i}">`;
     h += `<select class="ai-sec-type" style="flex:1;border-left:3px solid ${def.color};">`;
-    SECTIONS.forEach(sec => h += `<option value="${sec.id}"${sec.id===s.type?' selected':''}>${sec.label}</option>`);
+    stypes.forEach(sec => h += `<option value="${sec.id}"${sec.id===s.type?' selected':''}>${sec.label}</option>`);
     h += `</select>`;
     h += `<input type="number" class="ai-sec-mins" value="${s.mins}" min="5" max="60" step="5" style="width:64px;text-align:center;">`;
     h += `<span style="font-size:11px;color:var(--text2);">min</span>`;
@@ -1186,7 +1217,7 @@ function html_m_ai_result(sections) {
   let h = '<div class="modal-body">';
   h += '<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Gennemse forslaget og acceptér eller afvis.</p>';
   sections.forEach((sec, si) => {
-    const def = SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
+    const def = getSectionTypes().find(s=>s.id===sec.type)||SECTIONS.find(s=>s.id===sec.type)||SECTIONS[0];
     h += `<div style="margin-bottom:14px;border-left:3px solid ${def.color};padding-left:10px;">`;
     const totalMinsStr = sec.mins ? ` · ${sec.mins} min` : '';
     h += `<div style="font-weight:700;color:${def.color};font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">${def.label}<span style="font-weight:400;color:var(--text2);">${totalMinsStr}</span></div>`;
@@ -1210,7 +1241,7 @@ function html_m_ai_result(sections) {
 
 function html_m_ai_sec_suggest(si) {
   const sec = S.draft?.sections[si];
-  const def = SECTIONS.find(s=>s.id===sec?.type)||SECTIONS[0];
+  const def = getSectionTypes().find(s=>s.id===sec?.type)||getSectionTypes()[0]||SECTIONS[0];
   const themes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
   const currentThemes = (S.draft&&S.draft.themes)||[];
 
@@ -1236,6 +1267,35 @@ function html_m_ai_sec_suggest(si) {
   h += `<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button>`;
   h += `<button class="btn btn-primary" id="aisec-go" data-si="${si}" style="background:var(--purple);border-color:var(--purple);">✨ Generer</button></div>`;
   return mwrap(mhead('✨ AI forslag – ' + def.label) + h, 'modal-sm');
+}
+
+function html_m_sectype_edit(idx) {
+  const isNew = idx === -1;
+  const st = isNew ? {id:'', label:'', color:'#3b82f6', tags:[], themes:[], required:false} : getSectionTypes()[idx];
+  if (!st) return '';
+  const allTags = [...new Set([...S.halCatalog,...S.fysCatalog].flatMap(e=>e.tags||[]))].sort();
+  const allThemes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
+  let h = '<div class="modal-body">';
+  h += '<div class="form-group"><label>Navn</label><input id="st-label" value="'+esc(st.label)+'" placeholder="fx Teknik"></div>';
+  h += '<div class="form-group"><label>Farve</label><input type="color" id="st-color" value="'+st.color+'" style="width:60px;height:36px;padding:2px;cursor:pointer;"></div>';
+  h += '<div class="form-group"><label>Tags (klik for at vælge)</label><div style="display:flex;flex-wrap:wrap;gap:4px;" id="st-tags">';
+  allTags.forEach(t => {
+    const active = (st.tags||[]).includes(t);
+    h += '<button class="pill btn-xs'+(active?' active':'')+'" data-sttag="'+esc(t)+'">'+esc(t)+'</button>';
+  });
+  h += '</div></div>';
+  h += '<div class="form-group"><label>Temaer (lad stå tomt = alle temaer)</label><div style="display:flex;flex-wrap:wrap;gap:4px;" id="st-themes">';
+  allThemes.forEach(t => {
+    const active = (st.themes||[]).includes(t);
+    h += '<button class="pill btn-xs'+(active?' active':'')+'" data-sttheme="'+esc(t)+'">'+esc(t)+'</button>';
+  });
+  h += '</div></div>';
+  if (isNew) h += '<div class="form-group"><label>ID (fx "styrke2")</label><input id="st-id" value="" placeholder="unikt-id" style="font-family:monospace;"></div>';
+  h += '<div class="form-group" style="display:flex;align-items:center;gap:8px;"><label style="margin:0;">Obligatorisk (altid med i forslag)</label><input type="checkbox" id="st-required"'+(st.required?' checked':'')+' style="width:18px;height:18px;"></div>';
+  h += '</div>';
+  h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button>';
+  h += '<button class="btn btn-primary" id="st-save" data-idx="'+(idx)+'" style="">Gem</button></div>';
+  return mwrap(mhead((isNew?'Ny':'Rediger')+' sektionstype') + h, 'modal-sm');
 }
 
 function validateAISections(sections) {
@@ -1270,32 +1330,21 @@ async function runAISuggest(secsMins, themes, vary) {
 
   // Build catalog summary - only include relevant exercises per section type
   const secTypes = [...new Set(secsMins.map(s=>s.type))];
-  // Strict tag mapping - only exercises with these exact tags qualify for each section
-  const tagMap = {
-    fysisk:      ['plyometrik','eksplosion','styrke'],
-    opvarmning:  ['opvarmning','leg','stafet','tvekamp','småspil'],
-    afleveringer:['aflevering','afleveringer'],
-    kontra:      ['kontra','returløb'],
-    teknik:      ['skud','finter','duel','faldteknik','teknik'],
-    spil:        ['sammenspil','beslutning','taktik','kamp','overgang'],
-    keeper:      ['keeper'],
-    forsvar:     ['forsvar','taktik'],
-  };
-  // For filtering: each section ONLY sees exercises with at least one matching tag
-  // hurtighed is shared but context-dependent - include it in multiple sections
-  const tagMapExtra = {
-    fysisk:      ['hurtighed'],
-    afleveringer:['hurtighed','sammenspil'],
-    teknik:      ['hurtighed'],
-  };
+  // Build tag/theme mapping from getSectionTypes()
+  const sectionTypeDefs = getSectionTypes();
+  const tagMap = {};
+  const tagMapExtra = {};
+  sectionTypeDefs.forEach(st => { tagMap[st.id] = st.tags || []; tagMapExtra[st.id] = []; });
   // Build catalog summary with defaultMins
   const catalogSummary = all
     .filter(e => {
       const eTags = e.tags||[];
-      return secTypes.some(t =>
-        (tagMap[t]||[]).some(tag => eTags.includes(tag)) ||
-        (tagMapExtra[t]||[]).some(tag => eTags.includes(tag))
+      // Include exercise if it matches any section's tags OR any of the training themes
+      const matchesSection = secTypes.some(t =>
+        (tagMap[t]||[]).some(tag => eTags.includes(tag))
       );
+      const matchesTheme = themes.some(th => eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
+      return matchesSection || matchesTheme;
     })
     .map(e => ({
       id: e.id,
@@ -1324,15 +1373,28 @@ async function runAISuggest(secsMins, themes, vary) {
     return `${label}: ${s.mins} min total, ca. ${avgMins} min/øvelse → maks ${maxEx} øvelse${maxEx>1?'r':''}`;
   }).join('\n');
 
-  // Build per-section catalog slices for the prompt
+  // Build per-section catalog slices - match on tags AND training themes
   const secCatalogs = secsMins.map(s => {
-    const eTags = [...(tagMap[s.type]||[]), ...(tagMapExtra[s.type]||[])];
-    const def = SECTIONS.find(x=>x.id===s.type);
+    const stDef = sectionTypeDefs.find(x=>x.id===s.type);
+    const secTags = stDef ? stDef.tags || [] : [];
+    const secThemes = stDef ? stDef.themes || [] : [];
+    // Active themes: training themes + section-specific themes
+    const activeThemes = [...themes, ...secThemes];
+    const exercises = catalogSummary.filter(e => {
+      const eTags = e.tags.split(', ');
+      // Must match section tags
+      const tagMatch = secTags.some(tag => eTags.includes(tag));
+      // Bonus: also include if matches a theme keyword
+      const themeMatch = activeThemes.some(th =>
+        eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase()))
+      );
+      return tagMatch || themeMatch;
+    });
     return {
-      section: def ? def.label : s.type,
+      section: stDef ? stDef.label : s.type,
       type: s.type,
       mins: s.mins,
-      exercises: catalogSummary.filter(e => eTags.some(tag => e.tags.split(', ').includes(tag)))
+      exercises
     };
   });
 
@@ -1620,6 +1682,28 @@ function html_indstillinger_tab() {
     ((S.users||[]).length===0?'<p style="font-size:12px;color:var(--text3);">Ingen brugere</p>':'') +
     '</div></div>' +
 
+    // Sektionstyper
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
+    '<span class="card-title">⚽ Sektionstyper & AI-mapping</span>' +
+    (canAdmin() ? '<button class="btn btn-secondary btn-xs" id="sectype-add-btn">+ Ny type</button>' : '') +
+    '</div>' +
+    '<div class="card-body">' +
+    '<p style="font-size:12px;color:var(--text2);margin-bottom:12px;">Definer hvilke tags og temaer der hører til hver sektionstype. AI bruger dette til at vælge relevante øvelser.</p>' +
+    getSectionTypes().map((st,i) => {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">'
+        + '<div style="width:10px;height:10px;border-radius:50%;background:'+st.color+';flex-shrink:0;"></div>'
+        + '<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+esc(st.label)+'</div>'
+        + '<div style="font-size:11px;color:var(--text2);">Tags: '+((st.tags||[]).join(', ')||'–')+'</div>'
+        + '<div style="font-size:11px;color:var(--text2);">Temaer: '+((st.themes||[]).join(', ')||'alle')+'</div>'
+        + '</div>'
+        + (st.required ? '<span style="font-size:10px;color:var(--text3);" title="Obligatorisk">🔒</span>' : '')
+        + (canAdmin() ? '<button class="btn btn-ghost btn-xs" data-sectype-edit="'+i+'">✎</button>' : '')
+        + (canAdmin()&&!st.required ? '<button class="btn btn-danger btn-xs" data-sectype-del="'+i+'">✕</button>' : '')
+        + '</div>';
+    }).join('') +
+    '</div></div>' +
+
     // Skabeloner
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1707,7 +1791,7 @@ document.addEventListener('click', async e => {
     const div = document.createElement('div');
     div.className = 'ai-sec-row';
     div.style.cssText = 'display:flex;align-items:center;gap:8px;';
-    div.innerHTML = `<select class="ai-sec-type" style="flex:1;">${SECTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select><input type="number" class="ai-sec-mins" value="15" min="5" max="60" step="5" style="width:64px;text-align:center;"><span style="font-size:11px;color:var(--text2);">min</span><button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
+    div.innerHTML = `<select class="ai-sec-type" style="flex:1;">${getSectionTypes().map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select><input type="number" class="ai-sec-mins" value="15" min="5" max="60" step="5" style="width:64px;text-align:center;"><span style="font-size:11px;color:var(--text2);">min</span><button class="btn btn-ghost btn-xs ai-sec-del" style="padding:2px 6px;color:var(--red);">✕</button>`;
     list.appendChild(div);
     return;
   }
@@ -1721,10 +1805,14 @@ document.addEventListener('click', async e => {
   if (e.target.closest('#ai-suggest-go')) {
     const rows = [...document.querySelectorAll('.ai-sec-row')];
     if (!rows.length) { toast('Tilføj mindst én sektion', 'err'); return; }
-    const secsMins = rows.map(row => ({
+    let secsMins = rows.map(row => ({
       type: row.querySelector('.ai-sec-type')?.value || 'opvarmning',
       mins: parseInt(row.querySelector('.ai-sec-mins')?.value||15),
     }));
+    // Always ensure required sections are present
+    getSectionTypes().filter(st=>st.required).forEach(st => {
+      if (!secsMins.some(s=>s.type===st.id)) secsMins.unshift({type:st.id, mins:15});
+    });
     const themes = [...document.querySelectorAll('[data-aitheme].active')].map(el=>el.dataset.aitheme);
     const custom = (ge('ai-theme-custom')?.value||'').trim();
     if (custom) themes.push(custom);
@@ -1775,6 +1863,58 @@ document.addEventListener('click', async e => {
   }
 });
 
+// ─── SECTION TYPE BINDINGS ───────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  // Open add new
+  if (e.target.closest('#sectype-add-btn')) { S.modal={type:'sectypeEdit',idx:-1}; render(); return; }
+  // Open edit
+  const editBtn = e.target.closest('[data-sectype-edit]');
+  if (editBtn) { S.modal={type:'sectypeEdit',idx:+editBtn.dataset.sectypeEdit}; render(); return; }
+  // Delete
+  const delBtn = e.target.closest('[data-sectype-del]');
+  if (delBtn && confirm('Slet sektionstype?')) {
+    const types = getSectionTypes();
+    types.splice(+delBtn.dataset.sectypeDel, 1);
+    S.sectionTypes = types;
+    scheduleSave('sectionTypes');
+    toast('Sektionstype slettet');
+    render();
+    return;
+  }
+  // Tag toggle in edit modal
+  const stTag = e.target.closest('[data-sttag]');
+  if (stTag && document.getElementById('st-tags')) { stTag.classList.toggle('active'); return; }
+  // Theme toggle in edit modal
+  const stTheme = e.target.closest('[data-sttheme]');
+  if (stTheme && document.getElementById('st-themes')) { stTheme.classList.toggle('active'); return; }
+  // Save
+  if (e.target.closest('#st-save')) {
+    const btn = e.target.closest('#st-save');
+    const idx = +btn.dataset.idx;
+    const isNew = idx === -1;
+    const label = document.getElementById('st-label')?.value?.trim();
+    if (!label) { toast('Navn mangler', 'err'); return; }
+    const color = document.getElementById('st-color')?.value || '#3b82f6';
+    const tags = [...document.querySelectorAll('[data-sttag].active')].map(el=>el.dataset.sttag);
+    const themes = [...document.querySelectorAll('[data-sttheme].active')].map(el=>el.dataset.sttheme);
+    const required = document.getElementById('st-required')?.checked || false;
+    const types = [...getSectionTypes()];
+    if (isNew) {
+      const rawId = document.getElementById('st-id')?.value?.trim();
+      const id = rawId || label.toLowerCase().replace(/[^a-z0-9]/g,'').substring(0,12) || ('st'+Date.now());
+      const cls = 'sc-'+id;
+      types.push({id, label, color, cls, tags, themes, required});
+    } else {
+      types[idx] = {...types[idx], label, color, tags, themes, required};
+    }
+    S.sectionTypes = types;
+    scheduleSave('sectionTypes');
+    toast('Sektionstype gemt ✓');
+    S.modal = null; render();
+    return;
+  }
+});
+
 // ─── ROLE HELPERS ────────────────────────────────────────────────────────────
 function userRole() { return (S.currentUser && S.currentUser.role) || 'guest'; }
 function canEdit()  { return userRole() === 'trainer' || userRole() === 'admin'; }
@@ -1800,13 +1940,13 @@ function bind() {
   on('[data-qadd]',   el=>{const qi=+el.dataset.qadd;if((S.quarters[qi].themes||[]).length<6){S.quarters[qi].themes.push('');scheduleSave('quarters');render();}});
   on('[data-qdel]',   el=>{const[qi,ti]=el.dataset.qdel.split('-').map(Number);S.quarters[qi].themes.splice(ti,1);scheduleSave('quarters');render();});
   live('[data-qt]',   el=>{if(S.aarshjulLocked)return;const[qi,ti]=el.dataset.qt.split('-').map(Number);S.quarters[qi].themes[ti]=el.value;scheduleSave('quarters');});
-  on('[data-open]',   el=>{if(!event.target.closest('[data-edit],[data-arch]')){const t=S.trainings.find(x=>x.id===el.dataset.open);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}}});
-  on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));render();}});
+  on('[data-open]',   el=>{if(!event.target.closest('[data-edit],[data-arch]')){const t=S.trainings.find(x=>x.id===el.dataset.open);if(t){S.draft=JSON.parse(JSON.stringify(t));S.draftInfoCollapsed=true;render();}}});
+  on('[data-edit]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.edit);if(t){S.draft=JSON.parse(JSON.stringify(t));S.draftInfoCollapsed=true;render();}});
   on('[data-arch]',   el=>{const t=S.trainings.find(x=>x.id===el.dataset.arch);if(t){t.archived=true;scheduleSave('trainings');toast('Arkiveret');render();}});
   on('[data-deltrain]',el=>{const id=el.dataset.deltrain;if(!confirm('Slet træning permanent?'))return;S.trainings=S.trainings.filter(x=>x.id!==id);scheduleSave('trainings');toast('Træning slettet');render();});
   ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
   ge('hsImportBtn')?.addEventListener('click', ()=>requireUnlock(hsOpenImport));
-  ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};render();}));
+  ge('newTBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.draft={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};S.draftInfoCollapsed=false;render();}));
   ge('fromTmplBtn')?.addEventListener('click',()=>{S.modal={type:'fromTmpl'};render();});
   ge('loadTmplBtn')?.addEventListener('click',()=>requireUnlock(()=>{S.modal={type:'loadTmpl'};render();}));
   ge('cfg-sheets-save')?.addEventListener('click',()=>{const v=document.getElementById('cfg-sheets-id')?.value?.trim();if(v){S.sheetsId=v;lsSave('sheetsId',v);toast('Sheets ID gemt ✓');}});
@@ -2319,7 +2459,7 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
   on('[data-restore]',el=>requireUnlock(()=>{const t=S.trainings.find(x=>x.id===el.dataset.restore);if(t){t.archived=false;scheduleSave('trainings');toast('Genskabt');render();}}));
   on('[data-deltrain]',el=>requireUnlock(()=>{if(confirm('Slet permanent?')){S.trainings=S.trainings.filter(x=>x.id!==el.dataset.deltrain);scheduleSave('trainings');render();}}));
   ge('confirmTmpl')?.addEventListener('click',()=>{const n=v('tmpl-n')?.trim();if(!n){toast('Navn mangler','err');return;}S.templates.push({id:uid(),name:n,sections:JSON.parse(JSON.stringify(S.draft.sections||[]))});scheduleSave('templates');toast(`Skabelon "${n}" gemt`);S.modal=null;render();});
-  on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';render();});
+  on('[data-usetmpl]',el=>{const tid=el.dataset.usetmpl;const nt={id:uid(),title:'',date:'',startTime:'',endTime:'',location:'',trainers:[],sections:[],stars:0};if(tid!=='blank'){const tm=S.templates.find(t=>t.id===tid);if(tm)nt.sections=JSON.parse(JSON.stringify(tm.sections||[]));}S.draft=nt;S.modal=null;S.tab='traening';S.draftInfoCollapsed=false;render();});
   on('[data-deltmpl]',el=>{S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmpl);scheduleSave('templates');render();});
   on('[data-deltmplset]',el=>{if(!confirm('Slet skabelon?'))return;S.templates=S.templates.filter(t=>t.id!==el.dataset.deltmplset);scheduleSave('templates');toast('Skabelon slettet');render();});
   on('[data-renametmpl]',el=>{
