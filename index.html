@@ -595,16 +595,16 @@ function html_editor() {
     <div class="card" style="margin-bottom:14px;">
       <div class="card-header" id="info-toggle" style="cursor:pointer;user-select:none;" onclick="S.draftInfoCollapsed=!S.draftInfoCollapsed;lsSave('infoCollapsed',S.draftInfoCollapsed);document.getElementById('info-body').style.display=S.draftInfoCollapsed?'none':'block';this.querySelector('.info-chevron').style.transform=S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)';document.getElementById('info-summary').style.display=S.draftInfoCollapsed?'flex':'none';">
         <span class="card-title">Oplysninger & trænere</span>
-        <div id="info-summary" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);">
+        <div id="info-summary" style="display:${S.draftInfoCollapsed?'flex':'none'};align-items:center;gap:8px;font-size:12px;color:var(--text2);">
           <span>${t.date?fmtWday(t.date)+' '+fmtDay(t.date)+' '+fmtMon(t.date):'–'}</span>
           ${t.location?`<span class="loc-chip ${LOC_CLS[t.location]||''}">${t.location}</span>`:''}
           ${dur>0?`<span style="color:var(--text3);">${t.startTime||''}${t.startTime&&t.endTime?' – ':''}${t.endTime||''}</span>`:''}
           <span style="background:var(--bg4);padding:1px 7px;border-radius:4px;font-weight:700;color:${tot>dur&&dur>0?'var(--red)':'var(--text)'};">${tot} <span style="font-weight:400;color:var(--text2);">/ ${dur>0?dur+'&nbsp;min':'? min'}</span></span>
           ${t.leadTrainer?`<span style="color:var(--text3);">· ★ ${t.leadTrainer}</span>`:''}
         </div>
-        <span class="info-chevron" style="color:var(--text3);font-size:13px;transition:transform .2s;flex-shrink:0;">▾</span>
+        <span class="info-chevron" style="color:var(--text3);font-size:13px;transition:transform .2s;flex-shrink:0;transform:${S.draftInfoCollapsed?'rotate(-90deg)':'rotate(0deg)'}"">▾</span>
       </div>
-      <div id="info-body" class="card-body">
+      <div id="info-body" class="card-body" style="display:${S.draftInfoCollapsed?'none':'block'}">
         <div class="info-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
 
           <!-- Kolonne 1: Tid, Sted, Trænere -->
