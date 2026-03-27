@@ -1319,10 +1319,10 @@ function html_m_sectype_edit(idx) {
 }
 
 function validateAISections(sections) {
-  // Filter out exercises with IDs not in catalog
+  // Filtrér ukendte øvelses-ID'er fra
   const all = S.halCatalog.concat(S.fysCatalog);
   const validIds = new Set(all.map(e=>e.id));
-  return sections.map(sec => ({
+  const cleaned = sections.map(sec => ({
     ...sec,
     exercises: (sec.exercises||[]).filter(ex => {
       if (!validIds.has(ex.exerciseId)) {
@@ -1332,91 +1332,67 @@ function validateAISections(sections) {
       return true;
     })
   })).filter(sec => sec.exercises.length > 0);
+
+  // Deduplér sektionstyper – behold kun første forekomst (i tilfælde af AI ignorerer reglen)
+  const seen = new Set();
+  return cleaned.filter(sec => {
+    if (seen.has(sec.type)) return false;
+    seen.add(sec.type);
+    return true;
+  });
 }
 
 async function runAISuggest(secsMins, themesArg, vary) {
-  // secsMins = [{type, mins}, ...]
-  // Temaer tages altid fra selve træningen (ikke fra modal)
-  const trainingThemes = (S.draft&&S.draft.themes)||[];
-  const allQuarterThemes = S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x.trim()));
-  const themes = [...new Set([...trainingThemes, ...allQuarterThemes, ...(themesArg||[])])];
+  // Temaer: fra træningen (draft.themes) + årshjul, plus evt. ekstra fra kalderen
+  const trainingThemes = (S.draft && S.draft.themes) || [];
+  const quarterThemes  = S.quarters.flatMap(q => (q.themes||[]).filter(x => x && x.trim()));
+  const themes = [...new Set([...trainingThemes, ...quarterThemes, ...(themesArg||[])])];
 
-  // Håndhæv max én af hver sektionstype (behold første forekomst)
+  // Dedupliker sektionstyper – behold første forekomst
   const seenTypes = new Set();
-  secsMins = secsMins.filter(s => {
-    if (seenTypes.has(s.type)) return false;
-    seenTypes.add(s.type);
-    return true;
-  });
+  secsMins = secsMins.filter(s => { if (seenTypes.has(s.type)) return false; seenTypes.add(s.type); return true; });
 
   const all = S.halCatalog.concat(S.fysCatalog);
+  const sectionTypeDefs = getSectionTypes();
 
-  // Recent exercise IDs to avoid (last 3 trainings)
+  // Recent exercise IDs to avoid
   let recentIds = new Set();
   if (vary) {
-    const recent = [...S.trainings]
-      .filter(t=>!t.archived)
-      .sort((a,b)=>b.date.localeCompare(a.date))
-      .slice(0,3);
-    recent.forEach(t => (t.sections||[]).forEach(s => (s.exercises||[]).forEach(e => recentIds.add(e.exerciseId))));
+    [...S.trainings].filter(t=>!t.archived).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3)
+      .forEach(t => (t.sections||[]).forEach(s => (s.exercises||[]).forEach(e => recentIds.add(e.exerciseId))));
   }
 
-  // Build catalog summary - only include relevant exercises per section type
-  const secTypes = [...new Set(secsMins.map(s=>s.type))];
-  // Build tag/theme mapping from getSectionTypes()
-  const sectionTypeDefs = getSectionTypes();
-  const tagMap = {};
-  sectionTypeDefs.forEach(st => { tagMap[st.id] = st.tags || []; });
+  // Byg per-sektion øvelseslister med strict tag-filter
+  const secCatalogs = secsMins.map(s => {
+    const stDef = sectionTypeDefs.find(x => x.id === s.type);
+    const secTags = stDef ? (stDef.tags || []) : [];
 
-  // Build catalog summary with defaultMins (include exercise if it matches ANY requested section's tags)
-  const catalogSummary = all
-    .filter(e => {
-      const eTags = e.tags||[];
-      return secTypes.some(t => (tagMap[t]||[]).some(tag => eTags.includes(tag)));
-    })
-    .map(e => ({
+    // Alle katalogøvelser som et array af {id,name,tags[],stars,defaultMins,recent}
+    const pool = all.map(e => ({
       id: e.id,
       name: e.name,
-      tags: (e.tags||[]).join(', '),
-      stars: e.stars||0,
-      defaultMins: e.defaultMins||10,
+      eTags: e.tags || [],
+      stars: e.stars || 0,
+      defaultMins: e.defaultMins || 10,
       recent: recentIds.has(e.id),
     }));
 
-  // Build per-section catalog slices
-  // Rule: exercise MUST match the section's own tags (strict).
-  // Theme matching is used as a relevance SORT BOOST, not to add unrelated exercises.
-  const secCatalogs = secsMins.map(s => {
-    const stDef = sectionTypeDefs.find(x=>x.id===s.type);
-    const secTags = stDef ? stDef.tags || [] : [];
-    // Section-type-specific themes (from Settings) + training themes
-    const secThemes = stDef ? stDef.themes || [] : [];
-    const activeThemes = [...themes, ...secThemes];
+    // PRIMÆR FILTER: øvelsen skal have mindst ét af sektionstype-tagsene
+    let exercises = pool.filter(e => secTags.length > 0 && secTags.some(tag => e.eTags.includes(tag)));
 
-    // Filter: MUST match section tags (strict tag filter = correct section type)
-    let exercises = catalogSummary.filter(e => {
-      const eTags = e.tags.split(', ').filter(Boolean);
-      return secTags.some(tag => eTags.includes(tag));
-    });
-
-    // If section has no configured tags, fall back to theme matching as a last resort
-    if (secTags.length === 0 && activeThemes.length > 0) {
-      exercises = catalogSummary.filter(e => {
-        const eTags = e.tags.split(', ').filter(Boolean);
-        return activeThemes.some(th =>
-          eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase()))
-        );
-      });
+    // FALLBACK: hvis sektionstypen ingen tags har, inkludér alt (AI bestemmer)
+    if (exercises.length === 0) {
+      exercises = pool.filter(e => e.eTags.length > 0);
     }
 
-    // Sort: theme-matching exercises first, then by stars descending
-    if (activeThemes.length > 0) {
+    // Sorter: tema-match øverst, så stars faldende
+    if (themes.length > 0) {
       exercises = exercises.slice().sort((a, b) => {
-        const aTheme = activeThemes.some(th => a.tags.split(', ').some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
-        const bTheme = activeThemes.some(th => b.tags.split(', ').some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
-        if (aTheme && !bTheme) return -1;
-        if (!aTheme && bTheme) return 1;
-        return (b.stars||0) - (a.stars||0);
+        const aM = themes.some(th => a.eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
+        const bM = themes.some(th => b.eTags.some(tag => tag.toLowerCase().includes(th.toLowerCase()) || th.toLowerCase().includes(tag.toLowerCase())));
+        if (aM && !bM) return -1;
+        if (!aM && bM) return 1;
+        return b.stars - a.stars;
       });
     }
 
@@ -1424,7 +1400,8 @@ async function runAISuggest(secsMins, themesArg, vary) {
       section: stDef ? stDef.label : s.type,
       type: s.type,
       mins: s.mins,
-      exercises
+      // Send kun id/name/stars/defaultMins/recent til AI – ikke interne eTags
+      exercises: exercises.map(e => ({id:e.id, name:e.name, stars:e.stars, defaultMins:e.defaultMins, recent:e.recent})),
     };
   });
 
@@ -1433,25 +1410,24 @@ Sammensæt en træning. For HVER sektion er der angivet præcis hvilke øvelser 
 
 ${secCatalogs.map(sc => {
   const avgMins = sc.exercises.length > 0
-    ? Math.round(sc.exercises.reduce((s,e)=>s+e.defaultMins,0)/sc.exercises.length)
-    : 10;
+    ? Math.round(sc.exercises.reduce((s,e)=>s+e.defaultMins,0)/sc.exercises.length) : 10;
   const maxEx = Math.max(1, Math.round(sc.mins / avgMins));
-  return `## ${sc.section} (${sc.mins} min, maks ${maxEx} øvelse${maxEx>1?'r':''})
-Tilgængelige øvelser: ${JSON.stringify(sc.exercises.map(e=>({id:e.id,name:e.name,stars:e.stars,defaultMins:e.defaultMins,recent:e.recent})))}`;
+  return \`## \${sc.section} (\${sc.mins} min, maks \${maxEx} øvelse\${maxEx>1?'r':''})
+Tilgængelige øvelser: \${JSON.stringify(sc.exercises)}\`;
 }).join('\n\n')}
 
 Temaer: ${themes.length ? themes.join(', ') : 'ingen specifikke'}
 Variation: ${vary ? 'Undgå recent:true øvelser hvis muligt' : 'Gentag gerne nylige øvelser'}
 
-Returner KUN et JSON-array – ingen tekst før eller efter:
-[{"type":"opvarmning","mins":15,"exercises":[{"exerciseId":"ID","mins":8},{"exerciseId":"ID","mins":7}]},...]
+Returner KUN et JSON-array (ingen forklaringer, ingen markdown):
+[{"type":"sektionstype","mins":15,"exercises":[{"exerciseId":"ID","mins":8},...]}]
 
 Regler:
-- Brug KUN øvelser fra den pågældende sektions liste
+- Brug KUN øvelser fra den pågældende sektions liste ovenfor
+- Hver sektionstype må kun forekomme én gang i arrayet
 - Overhold maks antal øvelser per sektion
-- Brug defaultMins som udgangspunkt, juster så minutterne summerer til sektionens total
-- Foretrræk høje stars
-- Match temaer hvor muligt`;
+- Brug defaultMins som udgangspunkt – juster så summen passer til sektionens tid
+- Foretrræk høje stars og tema-relevante øvelser`;
 
   const aiUrl = S.aiWorkerUrl || lsLoad('aiWorkerUrl','');
   if (!aiUrl) throw new Error('AI Worker URL ikke sat – gå til Indstillinger');
@@ -1470,9 +1446,8 @@ Regler:
   const data = await resp.json();
   const text = data.content?.[0]?.text || '';
 
-  // Parse JSON from response
   const match = text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('AI returnerede ikke gyldigt JSON');
+  if (!match) throw new Error('AI returnerede ikke gyldigt JSON. Svar: ' + text.slice(0,120));
   return JSON.parse(match[0]);
 }
 
