@@ -1412,8 +1412,8 @@ ${secCatalogs.map(sc => {
   const avgMins = sc.exercises.length > 0
     ? Math.round(sc.exercises.reduce((s,e)=>s+e.defaultMins,0)/sc.exercises.length) : 10;
   const maxEx = Math.max(1, Math.round(sc.mins / avgMins));
-  return \`## \${sc.section} (\${sc.mins} min, maks \${maxEx} øvelse\${maxEx>1?'r':''})
-Tilgængelige øvelser: \${JSON.stringify(sc.exercises)}\`;
+  return `## ${sc.section} (${sc.mins} min, maks ${maxEx} øvelse${maxEx>1?'r':''})
+Tilgængelige øvelser: ${JSON.stringify(sc.exercises)}`;
 }).join('\n\n')}
 
 Temaer: ${themes.length ? themes.join(', ') : 'ingen specifikke'}
