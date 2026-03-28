@@ -616,7 +616,7 @@ function html_editor() {
                 <div class="form-group"><label>Slut</label><input type="time" id="e-end" value="${t.endTime||''}"></div>
               </div>
             </div>
-            <div id="total-mins-display" style="font-size:14px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">Varighed: <strong style="font-size:16px;">${dur>0?dur+' min':'–'}</strong> &nbsp;·&nbsp; Planlagt: <strong class="${mc}" style="font-size:16px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} over</span>`:''}</div>
+            <div id="total-mins-display-info" style="font-size:14px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">Varighed: <strong style="font-size:16px;">${dur>0?dur+' min':'–'}</strong> &nbsp;·&nbsp; Planlagt: <strong class="${mc}" style="font-size:16px;">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} over</span>`:''}</div>
             <div class="form-group"><label>Sted</label><div class="pill-group" style="margin-top:4px;">${LOCATIONS.map(l=>`<button class="pill${t.location===l?' active':''}" data-loc="${l}">${l}</button>`).join('')}</div></div>
             <div class="form-group">
               <label>Ansvarlig træner</label>
@@ -658,6 +658,7 @@ function html_editor() {
       </div>
     </div>
     <div class="card"><div class="card-header"><span class="card-title">Sektioner & øvelser</span><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs" id="loadTmplBtn" title="Indlæs fra skabelon">📋</button><button class="btn btn-ghost btn-xs" id="aiSuggestBtn" title="AI forslag til hele træningen" style="border-color:var(--purple);color:var(--purple);">✨ Hele træning</button><button class="btn btn-secondary btn-xs" id="addSecBtn">+ Sektion</button></div></div>
+      <div style="padding:8px 16px 0;"><div id="total-mins-display" style="font-size:13px;color:var(--text2);padding:7px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Planlagt: <strong class="${mc}">${tot} min</strong>${tot>dur&&dur>0?`<span style="color:var(--red);font-weight:600;"> ⚠ ${tot-dur} min over</span>`:''}</div></div>
       <div class="card-body" id="secs-wrap">
         ${(t.sections||[]).map((s,si)=>html_sec(s,si)).join('')}
         ${!(t.sections||[]).length?`<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik "+ Tilføj sektion"</p></div>`:''}
@@ -681,6 +682,7 @@ function renderSecs() {
   const scrollY = window.scrollY;
   wrap.innerHTML = secs.map((s,si) => html_sec(s,si)).join('')
     + (!secs.length ? '<div class="empty" style="padding:28px;"><p>Ingen sektioner – klik &quot;+ Tilføj sektion&quot;</p></div>' : '');
+  updateTotalMins();
   if (scrollY > 0) requestAnimationFrame(() => window.scrollTo({top: scrollY, behavior: 'instant'}));
 }
 
@@ -1148,11 +1150,8 @@ function html_m_ai_suggest() {
   const existingSecs = (S.draft&&S.draft.sections)||[];
   const stypes = getSectionTypes();
   const requiredIds = stypes.filter(st=>st.required).map(st=>st.id);
-  // Aktive temaer: fra træningen + årshjul
-  const activeThemes = [...new Set([
-    ...((S.draft&&S.draft.themes)||[]),
-    ...S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x&&x.trim()))
-  ])];
+  // Kun temaer der er aktivt valgt på træningen
+  const activeThemes = [...new Set((S.draft&&S.draft.themes)||[])];
 
   // Byg sektionsliste: eksisterende sektioner, men sikr at obligatoriske er med
   let preFill = existingSecs.length
@@ -1171,9 +1170,9 @@ function html_m_ai_suggest() {
     h += '<div class="tags-wrap" style="margin-top:4px;">';
     activeThemes.forEach(t => { h += `<span class="tag" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#c4b5fd;">${esc(t)}</span>`; });
     h += '</div>';
-    h += '<p style="font-size:11px;color:var(--text3);margin-top:5px;">Temaer er hentet fra træningen og bruges automatisk af AI</p>';
+    h += '<p style="font-size:11px;color:var(--text3);margin-top:5px;">Valgte temaer på træningen – bruges automatisk af AI</p>';
   } else {
-    h += '<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer sat på træningen – tilføj dem i træningseditoren eller årshjulet</p>';
+    h += '<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer valgt på træningen – vælg dem i træningseditoren under "Temaer"</p>';
   }
   h += '</div>';
 
@@ -1282,11 +1281,8 @@ function html_m_ai_result(sections) {
 function html_m_ai_sec_suggest(si) {
   const sec = S.draft?.sections[si];
   const def = getSectionTypes().find(s=>s.id===sec?.type)||getSectionTypes()[0]||SECTIONS[0];
-  // Temaer fra træningen + årshjul – read-only
-  const activeThemes = [...new Set([
-    ...((S.draft&&S.draft.themes)||[]),
-    ...S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x&&x.trim()))
-  ])];
+  // Kun temaer der er aktivt valgt på træningen
+  const activeThemes = [...new Set((S.draft&&S.draft.themes)||[])];
 
   let h = '<div class="modal-body">';
   h += `<div style="border-left:3px solid ${def.color};padding-left:10px;margin-bottom:14px;">`;
@@ -1358,11 +1354,8 @@ function validateAISections(sections) {
 }
 
 async function runAISuggest(secsMins, _unused, vary) {
-  // Temaer hentes altid fra træningen + årshjul (ignorerer _unused parameteren)
-  const themes = [...new Set([
-    ...((S.draft&&S.draft.themes)||[]),
-    ...S.quarters.flatMap(q=>(q.themes||[]).filter(x=>x&&x.trim()))
-  ])];
+  // Kun temaer der er aktivt valgt på træningen (ikke alle årshjulstemaer)
+  const themes = [...new Set((S.draft&&S.draft.themes)||[])];
 
   // Deduplicer sektionstyper inden vi sender til AI
   const seenT = new Set();
@@ -2684,18 +2677,18 @@ function fmtWday(d){if(!d)return'';const days=['søn','man','tir','ons','tor','f
 function fmtMon(d){if(!d)return'';return['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][+d.split('-')[1]-1]||'';}
 function updateTotalMins(){
   const t=S.draft; if(!t) return;
-  // Read current values from inputs
   document.querySelectorAll('[data-secmins]').forEach(inp=>{
     const si=+inp.dataset.secmins;
     if(t.sections[si]) t.sections[si].mins=parseInt(inp.value)||0;
   });
   const dur=durMin(t.startTime,t.endTime);
   const tot=totalMins(t);
+  const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
+  const overHtml=tot>dur&&dur>0?'<span style="color:var(--red);font-weight:600;"> ⚠ '+(tot-dur)+' min over</span>':'';
   const el=document.getElementById('total-mins-display');
-  if(el){
-    const mc=tot>dur?'mins-over':tot>dur*.9?'mins-warn':'mins-ok';
-    el.innerHTML=`Varighed: <strong>${dur>0?dur+' min':'–'}</strong> · Total planlagt: <strong class="${mc}" style="font-size:14px;">${tot} min</strong>${tot>dur&&dur>0?'<span style="color:var(--red);font-weight:600;"> ⚠ '+(tot-dur)+' min over!</span>':''}`;
-  }
+  if(el) el.innerHTML='Varighed: <strong>'+(dur>0?dur+' min':'–')+'</strong> · Planlagt: <strong class="'+mc+'">'+tot+' min</strong>'+overHtml;
+  const el2=document.getElementById('total-mins-display-info');
+  if(el2) el2.innerHTML='Varighed: <strong style="font-size:16px;">'+(dur>0?dur+' min':'–')+'</strong> &nbsp;·&nbsp; Planlagt: <strong class="'+mc+'" style="font-size:16px;">'+tot+' min</strong>'+overHtml;
 }
 function toast(msg,type='ok'){const c=ge('toastWrap');const d=document.createElement('div');d.className=`toast toast-${type}`;d.textContent=msg;c.appendChild(d);setTimeout(()=>d.remove(),2800);}
 
