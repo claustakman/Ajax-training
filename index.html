@@ -1166,11 +1166,16 @@ function html_m_ai_suggest() {
   h += '<p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Angiv sektioner og tid – AI vælger øvelser der passer.</p>';
 
   // Temaer fra træningen – read-only info
+  h += '<div class="form-group"><label>Temaer</label>';
   if (activeThemes.length) {
-    h += '<div class="form-group"><label>Temaer (fra træningen)</label><div class="tags-wrap">';
-    activeThemes.forEach(t => { h += `<span class="tag">${esc(t)}</span>`; });
-    h += '</div></div>';
+    h += '<div class="tags-wrap" style="margin-top:4px;">';
+    activeThemes.forEach(t => { h += `<span class="tag" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#c4b5fd;">${esc(t)}</span>`; });
+    h += '</div>';
+    h += '<p style="font-size:11px;color:var(--text3);margin-top:5px;">Temaer er hentet fra træningen og bruges automatisk af AI</p>';
+  } else {
+    h += '<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer sat på træningen – tilføj dem i træningseditoren eller årshjulet</p>';
   }
+  h += '</div>';
 
   // Sektioner med minutter
   h += '<div class="form-group"><label>Sektioner & varighed</label>';
@@ -1258,11 +1263,16 @@ function html_m_ai_sec_suggest(si) {
   h += `<div style="font-size:12px;color:var(--text2);">${sec?.mins||'?'} min</div>`;
   h += '</div>';
 
+  h += '<div class="form-group"><label>Temaer</label>';
   if (activeThemes.length) {
-    h += '<div class="form-group"><label>Temaer (fra træningen)</label><div class="tags-wrap">';
-    activeThemes.forEach(t => { h += `<span class="tag">${esc(t)}</span>`; });
-    h += '</div></div>';
+    h += '<div class="tags-wrap" style="margin-top:4px;">';
+    activeThemes.forEach(t => { h += `<span class="tag" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#c4b5fd;">${esc(t)}</span>`; });
+    h += '</div>';
+    h += '<p style="font-size:11px;color:var(--text3);margin-top:5px;">Bruges automatisk af AI</p>';
+  } else {
+    h += '<p style="font-size:12px;color:var(--text3);margin-top:4px;">Ingen temaer sat på træningen</p>';
   }
+  h += '</div>';
 
   h += '<div class="form-group"><label>Variation</label><div style="display:flex;gap:8px;margin-top:6px;">';
   h += '<button class="pill active" id="aisec-vary-yes" style="flex:1;justify-content:center;">🔄 Varier</button>';
@@ -1307,17 +1317,13 @@ function html_m_sectype_edit(idx) {
 function validateAISections(sections) {
   const all = S.halCatalog.concat(S.fysCatalog);
   const validIds = new Set(all.map(e=>e.id));
-  // Filtrér ugyldige øvelses-ID'er
-  const cleaned = sections.map(sec => ({
+  return sections.map(sec => ({
     ...sec,
     exercises: (sec.exercises||[]).filter(ex => {
       if (!validIds.has(ex.exerciseId)) { console.warn('AI returned unknown exerciseId:', ex.exerciseId); return false; }
       return true;
     })
   })).filter(sec => sec.exercises.length > 0);
-  // Deduplicer sektionstyper – behold første forekomst (AI ignorerer indimellem reglen)
-  const seen = new Set();
-  return cleaned.filter(sec => { if (seen.has(sec.type)) return false; seen.add(sec.type); return true; });
 }
 
 async function runAISuggest(secsMins, _unused, vary) {
@@ -1370,22 +1376,25 @@ async function runAISuggest(secsMins, _unused, vary) {
     };
   });
 
-  const secBlocks = secCatalogs.map(sc => {
+  // Nummerér sektionerne så AI's svar kan matches på position, ikke type
+  const secBlocks = secCatalogs.map((sc, i) => {
     const avgMins = sc.exercises.length > 0 ? Math.round(sc.exercises.reduce((s,e)=>s+e.defaultMins,0)/sc.exercises.length) : 10;
     const maxEx = Math.max(1, Math.round(sc.mins / avgMins));
-    return '## ' + sc.section + ' (' + sc.mins + ' min, maks ' + maxEx + ' øvelse' + (maxEx>1?'r':'') + ')\nTilgængelige øvelser: ' + JSON.stringify(sc.exercises);
+    return 'SEKTION ' + (i+1) + ' – ' + sc.section + ' (' + sc.mins + ' min, maks ' + maxEx + ' øvelse' + (maxEx>1?'r':'') + ')\nTilgængelige øvelser: ' + JSON.stringify(sc.exercises);
   }).join('\n\n');
 
   const prompt = 'Du er assistent for en håndboldtræner for U11 piger (9-11 år).\n'
-    + 'Sammensæt en træning. For HVER sektion er der angivet præcis hvilke øvelser der må bruges.\n\n'
+    + 'Sammensæt en træning. Der er ' + secCatalogs.length + ' sektioner nummereret herunder.\n'
+    + 'For HVER sektion er der angivet præcis hvilke øvelser der må bruges – brug KUN dem.\n\n'
     + secBlocks + '\n\n'
     + 'Temaer: ' + (themes.length ? themes.join(', ') : 'ingen specifikke') + '\n'
     + 'Variation: ' + (vary ? 'Undgå recent:true øvelser hvis muligt' : 'Gentag gerne nylige øvelser') + '\n\n'
-    + 'Returner KUN et JSON-array – ingen tekst før eller efter:\n'
-    + '[{"type":"opvarmning","mins":15,"exercises":[{"exerciseId":"ID","mins":8},...]}]\n\n'
+    + 'Returner KUN et JSON-array med præcis ' + secCatalogs.length + ' elementer – ét per sektion i SAMME rækkefølge.\n'
+    + 'Ingen tekst før eller efter. Format:\n'
+    + '[{"sectionIndex":1,"mins":15,"exercises":[{"exerciseId":"ID","mins":8}]},{"sectionIndex":2,"mins":20,"exercises":[...]},...]\n\n'
     + 'Regler:\n'
+    + '- sectionIndex starter ved 1 og svarer til SEKTION-nummeret ovenfor\n'
     + '- Brug KUN øvelser fra den pågældende sektions liste\n'
-    + '- Hver sektionstype må kun forekomme EN gang i output-arrayet\n'
     + '- Overhold maks antal øvelser per sektion\n'
     + '- Brug defaultMins som udgangspunkt, juster så minutterne summerer til sektionens total\n'
     + '- Foretrræk høje stars og tema-relevante øvelser';
@@ -1409,7 +1418,18 @@ async function runAISuggest(secsMins, _unused, vary) {
 
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error('AI returnerede ikke gyldigt JSON. Svar: ' + text.slice(0,120));
-  return JSON.parse(match[0]);
+  const aiResult = JSON.parse(match[0]);
+
+  // Tildel type og mins fra vores eget secsMins – ignorer hvad AI satte som type
+  // Match på sectionIndex hvis tilgængeligt, ellers på position
+  return secCatalogs.map((sc, i) => {
+    const aiSec = aiResult.find(r => r.sectionIndex === i+1) || aiResult[i] || {exercises:[]};
+    return {
+      type: sc.type,
+      mins: sc.mins,
+      exercises: (aiSec.exercises||[])
+    };
+  });
 }
 
 // ─── HOLDSPORT INTEGRATION ────────────────────────────────────────────────────
