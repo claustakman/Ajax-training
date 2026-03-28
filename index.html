@@ -1835,7 +1835,7 @@ document.addEventListener('click', async e => {
     const secsMins = [{type:sec.type, mins:sec.mins||20}];
     S.modal={type:'aiLoading'}; render();
     try {
-      const sections = await runAISuggest(secsMins, themes, vary);
+      const sections = await runAISuggest(secsMins, [], vary);
       if (sections&&sections[0]) {
         S.draft.sections[si].exercises = sections[0].exercises||[];
         renderSecs();
