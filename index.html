@@ -1195,6 +1195,16 @@ function html_m_ai_suggest() {
   h += '<button class="btn btn-ghost btn-xs" id="ai-sec-add">+ Tilføj sektion</button>';
   h += '</div>';
 
+  // Minutter-summering
+  const dur = durMin((S.draft&&S.draft.startTime)||'', (S.draft&&S.draft.endTime)||'');
+  const prePlanned = preFill.reduce((s,x)=>s+(x.mins||0), 0);
+  const durColor = dur > 0 ? (prePlanned > dur ? 'var(--red)' : prePlanned > dur*0.9 ? 'var(--yellow)' : 'var(--green)') : 'var(--text2)';
+  h += '<div id="ai-mins-summary" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;margin-bottom:4px;">';
+  h += 'Planlagt: <strong id="ai-planned-mins" style="color:' + durColor + ';">' + prePlanned + ' min</strong>';
+  if (dur > 0) h += ' / <strong>' + dur + ' min</strong> træning';
+  if (dur > 0 && prePlanned > dur) h += ' <span style="color:var(--red);font-weight:600;">⚠ ' + (prePlanned-dur) + ' min over</span>';
+  h += '</div>';
+
   // Variation toggle
   h += '<div class="form-group"><label>Øvelsesvariation</label>';
   h += '<div style="display:flex;gap:8px;margin-top:6px;">';
@@ -1205,6 +1215,27 @@ function html_m_ai_suggest() {
   h += '</div>';
   h += '<div class="modal-footer"><button class="btn btn-ghost mclose">Annuller</button>';
   h += '<button class="btn btn-primary" id="ai-suggest-go" style="background:var(--purple);border-color:var(--purple);">✨ Generer forslag</button></div>';
+
+  // Script til live-opdatering af minutter-summering
+  const trainingDur = dur;
+  h += `<script>(function(){
+    function updateAiMins(){
+      var rows=document.querySelectorAll('.ai-sec-row');
+      var tot=0; rows.forEach(function(r){tot+=parseInt(r.querySelector('.ai-sec-mins')?.value||0)||0;});
+      var el=document.getElementById('ai-planned-mins'); if(!el)return;
+      var dur=${trainingDur};
+      var col=dur>0?(tot>dur?'var(--red)':tot>dur*.9?'var(--yellow)':'var(--green)'):'var(--text2)';
+      el.textContent=tot+' min'; el.style.color=col;
+      var summary=document.getElementById('ai-mins-summary');
+      if(summary){
+        var warn=summary.querySelector('.ai-over-warn'); if(warn)warn.remove();
+        if(dur>0&&tot>dur){var sp=document.createElement('span');sp.className='ai-over-warn';sp.style.cssText='color:var(--red);font-weight:600;';sp.textContent=' ⚠ '+(tot-dur)+' min over';summary.appendChild(sp);}
+      }
+    }
+    document.addEventListener('input',function(e){if(e.target.classList.contains('ai-sec-mins'))updateAiMins();});
+    document.addEventListener('click',function(e){if(e.target.classList.contains('ai-sec-del')||e.target.id==='ai-sec-add')setTimeout(updateAiMins,50);});
+  })();<\/script>`;
+
   return mwrap(mhead('✨ Foreslå træning') + h, 'modal-sm');
 }
 
@@ -2131,6 +2162,11 @@ if(!document._secDelegBound){document._secDelegBound=true;document.addEventListe
     const msEl=e.target.closest('[data-movesec]');
     if(msEl&&S.draft){
       e.stopPropagation();
+      // Flush alle mins-inputs ind i state FØR swap, så mins følger med sektionen
+      document.querySelectorAll('[data-secmins]').forEach(inp=>{
+        const idx=+inp.dataset.secmins;
+        if(S.draft.sections[idx]!=null) S.draft.sections[idx].mins=parseInt(inp.value)||0;
+      });
       const [si,dir]=msEl.dataset.movesec.split('-');
       const secs=S.draft.sections, i=+si, t=dir==='up'?i-1:i+1;
       if(t>=0&&t<secs.length){[secs[i],secs[t]]=[secs[t],secs[i]];renderSecs();}
